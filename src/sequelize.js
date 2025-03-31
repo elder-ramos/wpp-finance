@@ -1,7 +1,7 @@
 import { Sequelize } from "sequelize";
 
 const sequelize = new Sequelize(
-  "postgres://user:password@0.0.0.0:5432/postgres"
+  "postgres://user:password@postgres:5432/postgres"
 );
 
 try {
