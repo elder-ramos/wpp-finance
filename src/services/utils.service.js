@@ -3,8 +3,9 @@ class utilsService {
         const phone = message.from.replace(/\D/g, '').replace('@c.us', '');
         const userData = {
             phone: phone,
-            name: message.notifyName ?? phone 
+            name: message._data.notifyName ?? phone 
         };
+        console.log("Message: ", message);
         return userData;
     };
 }

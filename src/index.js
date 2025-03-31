@@ -1,24 +1,32 @@
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
-const pg = require("pg");
 const messagesServiceClass = require("./services/messages.service").default;
 const utilServiceClass = require("./services/utils.service").default;
-const User = require("../models/user");
+const { Sequelize } = require("sequelize");
+
+const sequelize = new Sequelize(
+  "postgres://user:password@postgres:5432/postgres"
+);
+const Users = sequelize.define(
+  "Users",
+  {
+    phone: {
+      type: Sequelize.STRING(30),
+      allowNull: false,
+      primaryKey: true,
+    },
+    user_name: {
+      type: Sequelize.STRING(50),
+      allowNull: false,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
 
 const messagesService = new messagesServiceClass();
 const utilsService = new utilServiceClass();
-
-// const dbClient = new pg.Pool({
-//   host: process.env.DB_HOST, // Nome do serviço no docker-compose
-//   port: process.env.DB_PORT, // Porta interna do container PostgreSQL
-//   user: process.env.DB_USER,
-//   password: process.env.DB_PASSWORD,
-//   database: process.env.DB_NAME,
-//   ssl:
-//     process.env.NODE_ENV === "production"
-//       ? { rejectUnauthorized: false }
-//       : false,
-// });
 
 const client = new Client({
   authStrategy: new LocalAuth(),
@@ -37,16 +45,21 @@ client.on("ready", () => {
 
 client.on("message", async (msg) => {
   if (msg.type != "chat") {
-    msg.reply("Desculpe, apenas mensagens de texto são suportadas.");  
+    msg.reply("Desculpe, apenas mensagens de texto são suportadas.");
     return;
-  };
-  console.log("message: ", msg.body);
-  console.log("Message console: ", msg);
+  }
+
   const userData = utilsService.extractUserData(msg);
-  const _User = await User.findOrCreate({
+  const [_User, created] = await Users.findOrCreate({
     where: { phone: userData.phone },
-    defaults: { user_name: userData.name }
-  })
+    defaults: { user_name: userData.name },
+  });
+  if (created) {
+    client.sendMessage(
+      msg.from,
+      `Bem-vindo ao bot de finanças, ${userData.name}! Você foi cadastrado com sucesso.`
+    );
+  }
   const automaticResponse = messagesService.switchMessageType(msg.body);
   msg.reply(automaticResponse);
 });
