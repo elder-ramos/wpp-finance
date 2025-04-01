@@ -34,13 +34,15 @@ class MessagesService {
           if (response.done_reason != "stop") {
             console.error("Error: ", response);
           } else {
+            console.log("Response: ", response);
             return response.response;
           }
         });
     } catch (error) {
+      console.error("Error: ", error);
       return String(error);
     }
-  };
+  }
 }
 
 export default MessagesService;
