@@ -24,7 +24,7 @@ class MessagesService {
   async requestIA(message) {
     try {
       axios
-        .post("http://localhost:11434/api/generate", {
+        .post("http://ollama:11434/api/generate", {
           model: "wpp-finance-bot",
           prompt: message,
           format: "json",

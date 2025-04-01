@@ -49,6 +49,13 @@ client.on("message", async (msg) => {
     return;
   }
 
+  if (msg.body == "/ia") {
+    messagesService.requestIA("Qual é o maior país do mundo?").then((res) => {
+      msg.reply(res);
+    });
+    return;
+  }
+
   const userData = utilsService.extractUserData(msg);
   const [_User, created] = await Users.findOrCreate({
     where: { phone: userData.phone },
