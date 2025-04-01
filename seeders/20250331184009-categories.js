@@ -93,6 +93,12 @@ module.exports = {
           createdAt: new Date(),
           updatedAt: new Date(),
         },
+        {
+          category: "Outros",
+          subcategory: ["Outros"],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
       ],
       {}
     );
