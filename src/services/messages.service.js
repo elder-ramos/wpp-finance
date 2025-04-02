@@ -41,11 +41,11 @@ class MessagesService {
         format: "json",
         stream: false,
       });
-      if (iaResponse.done_reason != "stop") {
-        console.error("Error: ", response);
+      if (iaResponse.data.done_reason != "stop") {
+        console.error("Error: ", iaResponse.data);
         return "Erro ao processar a mensagem.";
       } else {
-        return iaResponse.response;
+        return iaResponse.data.response;
       }
     } catch (error) {
       console.error("Error: ", error);

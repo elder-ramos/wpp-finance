@@ -67,8 +67,6 @@ client.on("message", async (msg) => {
       `Bem-vindo ao bot de finanças, ${userData.name}! Você foi cadastrado com sucesso.`
     );
   }
-  const automaticResponse = messagesService.switchMessageType(msg.body);
-  msg.reply(automaticResponse);
 });
 
 client.initialize();
