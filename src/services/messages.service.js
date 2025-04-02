@@ -26,64 +26,64 @@ class MessagesService {
         model: "deepseek-r1:1.5b",
         prompt: `
           Instruções: Analise descrições de transações e converta-as em JSON, priorizando precisão.
-          Formato JSON: amount (number), description, transaction_date (datetime, default = today, brazillian pattern), payment_method, category_id, subcategory, credit_status (nullable. always "pending" if is credit card.), total_installments (nullable, optional field, only if payment = credit_card).
+          Formato JSON: amount (number), description, transaction_date (datetime, default = today, brazillian pattern), payment_method, category, subcategory, credit_status (nullable. always "pending" if is credit card.), total_installments (nullable, optional field, only if payment = credit_card).
           Categorias e subcategorias: 
           [
         {
-          "id": 1,
-          "Moradia": ["Aluguel", "Condomínio", "IPTU", "Reparos"]
+          "category": "Moradia",
+          "subcategories": ["Aluguel", "Condomínio", "IPTU", "Reparos"]
         },
         {
-          "id": 2,
-          "Alimentação": ["Supermercado", "Restaurantes", "Lanches"]
+          "category": "Alimentação",
+          "subcategories": ["Supermercado", "Restaurantes", "Lanches"]
         },
         {
-          "id": 3,
-          "Transporte": ["Combustível", "Uber/Táxi/99", "Manutenção do carro"]
+          "category": "Transporte",
+          "subcategories": ["Combustível", "Uber/Táxi/99", "Manutenção do carro"]
         },
         {
-          "id": 4,
-          "Lazer": ["Cinema", "Viagens", "Hobbies", "Esportes"]
+          "category": "Lazer",
+          "subcategories": ["Cinema", "Viagens", "Hobbies", "Esportes"]
         },
         {
-          "id": 5,
-          "Assinaturas": ["Streaming", "Serviços"]
+          "category": "Assinaturas",
+          "subcategories": ["Streaming", "Serviços"]
         },
         {
-          "id": 6,
-          "Saúde": ["Médico", "Farmácia", "Academia"]
+          "category": "Saúde",
+          "subcategories": ["Médico", "Farmácia", "Academia"]
         },
         {
-          "id": 7,
-          "Educação": ["Cursos", "Livros", "Material escolar"]
+          "category": "Educação",
+          "subcategories": ["Cursos", "Livros", "Material escolar"]
         },
         {
-          "id": 8,
-          "Dívidas": ["Cartão de crédito", "Empréstimo bancário"]
+          "category": "Dívidas",
+          "subcategories": ["Cartão de crédito", "Empréstimo bancário"]
         },
         {
-          "id": 9,
-          "Gastos Fixos": ["Contas de luz/água", "Internet", "Seguros"]
+          "category": "Gastos Fixos",
+          "subcategories": ["Contas de luz/água", "Internet", "Seguros"]
         },
         {
-          "id": 10,
-          "Imprevistos": ["Consertos emergenciais", "Multas"]
+          "category": "Imprevistos",
+          "subcategories": ["Consertos emergenciais", "Multas"]
         },
         {
-          "id": 11,
-          "Doações": ["Presentes", "Caridade"]
+          "category": "Doações",
+          "subcategories": ["Presentes", "Caridade"]
         },
         {
-          "id": 12,
-          "Vestuário": ["Roupas", "Cosméticos", "Cabeleireiro"]
+          "category": "Vestuário",
+          "subcategories": ["Roupas", "Cosméticos", "Cabeleireiro"]
         },
         {
-          "id": 13,
-          "Investimentos": ["Aplicações", "Reserva de emergência"]
+          "category": "Investimentos",
+          "subcategories": ["Aplicações", "Reserva de emergência"]
         },
         {
-          "id": 14,
-          "Outros": ["Outros"]
+          "category": "Outros",
+          "subcategories": ["Outros"]
         }
           ]
 
