@@ -50,9 +50,9 @@ client.on("message", async (msg) => {
   }
 
   if (msg.body == "/ia") {
-    const iaResponse = await messagesService.requestIA(msg.body);
-    console.log("iaResponse: ", iaResponse);
-    await msg.reply(iaResponse);
+    const responseMessage = await messagesService.switchMessageType(msg.body);
+    console.log("responseMessage: ", responseMessage);
+    await msg.reply(responseMessage);
     return;
   }
 

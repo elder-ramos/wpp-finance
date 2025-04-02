@@ -1,10 +1,10 @@
 import axios from "axios";
 
 class MessagesService {
-  switchMessageType(message) {
+  async switchMessageType(message) {
     switch (this.messageFirstWord(message)) {
       case "/ia":
-        return this.requestIA(message.replace("/ia", "").trim());
+        return await this.requestIA(message.replace("/ia", "").trim());
       default:
         return "Unknown command!";
     }
@@ -21,6 +21,7 @@ class MessagesService {
 
   async requestIA(message) {
     try {
+      console.log("Requesting IA...");
       const iaResponse = await axios.post("http://ollama:11434/api/generate", {
         model: "deepseek-r1:1.5b",
         prompt: `
@@ -43,6 +44,7 @@ class MessagesService {
         console.error("Error: ", iaResponse.data);
         return "Erro ao processar a mensagem.";
       } else {
+        console.log("IA Response -> : ", iaResponse.data.response);
         return iaResponse.data.response;
       }
     } catch (error) {
