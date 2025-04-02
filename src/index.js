@@ -50,9 +50,9 @@ client.on("message", async (msg) => {
   }
 
   if (msg.body == "/ia") {
-    await messagesService.requestIA("Qual é o maior país do mundo?").then((res) => {
-      msg.reply(res);
-    });
+    const iaResponse = await messagesService.requestIA(msg.body);
+    console.log("iaResponse: ", iaResponse);
+    await msg.reply(iaResponse);
     return;
   }
 
