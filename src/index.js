@@ -49,12 +49,9 @@ client.on("message", async (msg) => {
     return;
   }
 
-  if (msg.body == "/ia") {
-    const responseMessage = await messagesService.switchMessageType(msg.body);
-    console.log("responseMessage: ", responseMessage);
-    await msg.reply(responseMessage);
-    return;
-  }
+  const responseMessage = await messagesService.switchMessageType(msg.body);
+  console.log("responseMessage: ", responseMessage);
+  await msg.reply(responseMessage);
 
   console.log("Passou de tudo");
 
