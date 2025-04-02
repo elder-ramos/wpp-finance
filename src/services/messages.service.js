@@ -40,6 +40,15 @@ class MessagesService {
         format: "json",
         stream: false,
       });
+
+      iaResponse.data.on("data", (data) => {
+        console.log("Stream: ", data);
+      });
+
+      iaResponse.data.on("end", () => {
+        console.log("stream done");
+      });
+
       if (iaResponse.data.done_reason != "stop") {
         console.error("Error: ", iaResponse.data);
         return "Erro ao processar a mensagem.";
