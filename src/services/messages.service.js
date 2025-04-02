@@ -41,13 +41,8 @@ class MessagesService {
         stream: false,
       });
 
-      if (iaResponse.data.done_reason != "stop") {
-        console.error("Error: ", iaResponse.data);
-        return "Erro ao processar a mensagem.";
-      } else {
-        console.log("IA Response -> : ", iaResponse.data.response);
-        return iaResponse.data.response;
-      }
+      console.log("IA Response -> : ", iaResponse.data.response);
+      return iaResponse.data.response;
     } catch (error) {
       console.error("Error: ", error);
       return String(error);
