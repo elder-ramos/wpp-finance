@@ -26,51 +26,65 @@ class MessagesService {
         model: "deepseek-r1:1.5b",
         prompt: `
           Instruções: Analise descrições de transações e converta-as em JSON, priorizando precisão.
-          Formato JSON: amount, description, transaction_date, payment_method, category_id, subcategory, credit_status, installment_number, total_installments.
+          Formato JSON: amount (number), description, transaction_date (datetime, default = today), payment_method, category_id, subcategory, credit_status (nullable. always "pending" if is credit card.), total_installments (nullable, optional field, only if payment = credit_card).
           Categorias e subcategorias: 
           [
-            {
-              "Moradia": ["Aluguel", "Condomínio", "IPTU", "Reparos"]
-            },
-            {
-              "Alimentação": ["Supermercado", "Restaurantes", "Lanches"]
-            },
-            {
-              "Transporte": ["Combustível", "Uber/Táxi/99", "Manutenção do carro"]
-            },
-            {
-              "Lazer": ["Cinema", "Viagens", "Hobbies", "Esportes"]
-            },
-            {
-              "Assinaturas": ["Streaming", "Serviços"]
-            },
-            {
-              "Saúde": ["Médico", "Farmácia", "Academia"]
-            },
-            {
-              "Educação": ["Cursos", "Livros", "Material escolar"]
-            },
-            {
-              "Dívidas": ["Cartão de crédito", "Empréstimo bancário"]
-            },
-            {
-              "Gastos Fixos": ["Contas de luz/água", "Internet", "Seguros"]
-            },
-            {
-              "Imprevistos": ["Consertos emergenciais", "Multas"]
-            },
-            {
-              "Doações": ["Presentes", "Caridade"]
-            },
-            {
-              "Vestuário": ["Roupas", "Cosméticos", "Cabeleireiro"]
-            },
-            {
-              "Investimentos": ["Aplicações", "Reserva de emergência"]
-            },
-            {
-              "Outros": ["Outros"]
-            }
+        {
+          "id": 1,
+          "Moradia": ["Aluguel", "Condomínio", "IPTU", "Reparos"]
+        },
+        {
+          "id": 2,
+          "Alimentação": ["Supermercado", "Restaurantes", "Lanches"]
+        },
+        {
+          "id": 3,
+          "Transporte": ["Combustível", "Uber/Táxi/99", "Manutenção do carro"]
+        },
+        {
+          "id": 4,
+          "Lazer": ["Cinema", "Viagens", "Hobbies", "Esportes"]
+        },
+        {
+          "id": 5,
+          "Assinaturas": ["Streaming", "Serviços"]
+        },
+        {
+          "id": 6,
+          "Saúde": ["Médico", "Farmácia", "Academia"]
+        },
+        {
+          "id": 7,
+          "Educação": ["Cursos", "Livros", "Material escolar"]
+        },
+        {
+          "id": 8,
+          "Dívidas": ["Cartão de crédito", "Empréstimo bancário"]
+        },
+        {
+          "id": 9,
+          "Gastos Fixos": ["Contas de luz/água", "Internet", "Seguros"]
+        },
+        {
+          "id": 10,
+          "Imprevistos": ["Consertos emergenciais", "Multas"]
+        },
+        {
+          "id": 11,
+          "Doações": ["Presentes", "Caridade"]
+        },
+        {
+          "id": 12,
+          "Vestuário": ["Roupas", "Cosméticos", "Cabeleireiro"]
+        },
+        {
+          "id": 13,
+          "Investimentos": ["Aplicações", "Reserva de emergência"]
+        },
+        {
+          "id": 14,
+          "Outros": ["Outros"]
+        }
           ]
 
           Payment_method: dinheiro, pix, cartão_credito, cartão_debito, transferencia. o default deve ser pix.
