@@ -26,7 +26,7 @@ class MessagesService {
         model: "deepseek-r1:1.5b",
         prompt: `
           Instruções: Analise descrições de transações e converta-as em JSON, priorizando precisão.
-          Formato JSON: amount (number), description, transaction_date (datetime, default = today), payment_method, category_id, subcategory, credit_status (nullable. always "pending" if is credit card.), total_installments (nullable, optional field, only if payment = credit_card).
+          Formato JSON: amount (number), description, transaction_date (datetime, default = today, brazillian pattern), payment_method, category_id, subcategory, credit_status (nullable. always "pending" if is credit card.), total_installments (nullable, optional field, only if payment = credit_card).
           Categorias e subcategorias: 
           [
         {
@@ -91,7 +91,7 @@ class MessagesService {
 
           Regras:
           - transaction_date: Não pode ser futuro.
-          - Use categorias/subcategorias fornecidas.
+          - Use APENAS categorias/subcategorias fornecidas.
           - Moeda: Reais (R$).
 
           Saída: Apenas o JSON. Se inválido, retorne {'error': 'Mensagem de erro'}.
