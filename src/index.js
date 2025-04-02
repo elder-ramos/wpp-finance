@@ -56,6 +56,8 @@ client.on("message", async (msg) => {
     return;
   }
 
+  console.log("Passou de tudo");
+
   const userData = utilsService.extractUserData(msg);
   const [_User, created] = await Users.findOrCreate({
     where: { phone: userData.phone },

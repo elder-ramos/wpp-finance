@@ -5,7 +5,6 @@ class utilsService {
             phone: phone,
             name: message._data.notifyName ?? phone 
         };
-        console.log("Message: ", message);
         return userData;
     };
 }
