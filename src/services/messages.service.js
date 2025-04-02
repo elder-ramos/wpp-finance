@@ -38,7 +38,7 @@ class MessagesService {
           Saída: Apenas o JSON. Se inválido, retorne {'error': 'Mensagem de erro'}.
           Com base em tudo dito, analise a seguinte mensagem: '${message}'.`,
         format: "json",
-        stream: true,
+        stream: false,
       });
 
       if (iaResponse.data.done_reason != "stop") {
