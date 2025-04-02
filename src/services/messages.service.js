@@ -26,66 +26,78 @@ class MessagesService {
         model: "deepseek-r1:1.5b",
         prompt: `
           Instruções: Analise descrições de transações e converta-as em JSON, priorizando precisão.
-          Formato JSON: amount (number), description, transaction_date (datetime, default = today, brazillian pattern), payment_method, category, subcategory, credit_status (nullable. always "pending" if is credit card.), total_installments (nullable, optional field, only if payment = credit_card).
-          Categorias e subcategorias: 
-          [
-        {
-          "category": "Moradia",
-          "subcategories": ["Aluguel", "Condomínio", "IPTU", "Reparos"]
-        },
-        {
-          "category": "Alimentação",
-          "subcategories": ["Supermercado", "Restaurantes", "Lanches"]
-        },
-        {
-          "category": "Transporte",
-          "subcategories": ["Combustível", "Uber/Táxi/99", "Manutenção do carro"]
-        },
-        {
-          "category": "Lazer",
-          "subcategories": ["Cinema", "Viagens", "Hobbies", "Esportes"]
-        },
-        {
-          "category": "Assinaturas",
-          "subcategories": ["Streaming", "Serviços"]
-        },
-        {
-          "category": "Saúde",
-          "subcategories": ["Médico", "Farmácia", "Academia"]
-        },
-        {
-          "category": "Educação",
-          "subcategories": ["Cursos", "Livros", "Material escolar"]
-        },
-        {
-          "category": "Dívidas",
-          "subcategories": ["Cartão de crédito", "Empréstimo bancário"]
-        },
-        {
-          "category": "Gastos Fixos",
-          "subcategories": ["Contas de luz/água", "Internet", "Seguros"]
-        },
-        {
-          "category": "Imprevistos",
-          "subcategories": ["Consertos emergenciais", "Multas"]
-        },
-        {
-          "category": "Doações",
-          "subcategories": ["Presentes", "Caridade"]
-        },
-        {
-          "category": "Vestuário",
-          "subcategories": ["Roupas", "Cosméticos", "Cabeleireiro"]
-        },
-        {
-          "category": "Investimentos",
-          "subcategories": ["Aplicações", "Reserva de emergência"]
-        },
-        {
-          "category": "Outros",
-          "subcategories": ["Outros"]
-        }
-          ]
+          JSON format: 
+          {
+          amount (number), 
+          description, 
+          transaction_date (datetime. default = now. brazillian pattern), 
+          payment_method, 
+          category, 
+          subcategory, 
+          credit_status (nullable. always "pending" if is credit card.), 
+          total_installments (nullable, optional field, only if payment = credit_card).
+          }
+
+
+        Categorias e subcategorias: 
+        [
+          {
+            "category": "Moradia",
+            "subcategories": ["Aluguel", "Condomínio", "IPTU", "Reparos"]
+          },
+          {
+            "category": "Alimentação",
+            "subcategories": ["Supermercado", "Restaurantes", "Lanches"]
+          },
+          {
+            "category": "Transporte",
+            "subcategories": ["Combustível", "Uber/Táxi/99", "Manutenção do carro"]
+          },
+          {
+            "category": "Lazer",
+            "subcategories": ["Cinema", "Viagens", "Hobbies", "Esportes"]
+          },
+          {
+            "category": "Assinaturas",
+            "subcategories": ["Streaming", "Serviços"]
+          },
+          {
+            "category": "Saúde",
+            "subcategories": ["Médico", "Farmácia", "Academia"]
+          },
+          {
+            "category": "Educação",
+            "subcategories": ["Cursos", "Livros", "Material escolar"]
+          },
+          {
+            "category": "Dívidas",
+            "subcategories": ["Cartão de crédito", "Empréstimo bancário"]
+          },
+          {
+            "category": "Gastos Fixos",
+            "subcategories": ["Contas de luz/água", "Internet", "Seguros"]
+          },
+          {
+            "category": "Imprevistos",
+            "subcategories": ["Consertos emergenciais", "Multas"]
+          },
+          {
+            "category": "Doações",
+            "subcategories": ["Presentes", "Caridade"]
+          },
+          {
+            "category": "Vestuário",
+            "subcategories": ["Roupas", "Cosméticos", "Cabeleireiro"]
+          },
+          {
+            "category": "Investimentos",
+            "subcategories": ["Aplicações", "Reserva de emergência"]
+          },
+          {
+            "category": "Outros",
+            "subcategories": ["Outros"]
+          }
+        ]
 
           Payment_method: dinheiro, pix, cartão_credito, cartão_debito, transferencia. o default deve ser pix.
 
