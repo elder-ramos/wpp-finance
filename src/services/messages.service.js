@@ -3,10 +3,8 @@ import axios from "axios";
 class MessagesService {
   switchMessageType(message) {
     switch (this.messageFirstWord(message)) {
-      case "/add":
-        return "Added!";
-      case "/remove":
-        return "Removed!";
+      case "/ia":
+        return this.requestIA(message.replace("/ia", "").trim());
       default:
         return "Unknown command!";
     }
