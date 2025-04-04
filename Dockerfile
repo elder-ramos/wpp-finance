@@ -1,7 +1,7 @@
 # Usar a versão Alpine do Node.js
 FROM node:20-alpine
 
-# Instalar dependências do Chromium para Alpine
+# Instalar dependências do Chromium para Alpine e Python
 RUN apk add --no-cache \
     chromium \
     nss \
@@ -17,7 +17,9 @@ RUN apk add --no-cache \
     libxrandr \
     libxrender \
     libxscrnsaver \
-    libxtst
+    libxtst \
+    python3 \
+    py3-pip
 
 # Configurar variáveis de ambiente do Puppeteer
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
