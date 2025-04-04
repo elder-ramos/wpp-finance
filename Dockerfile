@@ -22,7 +22,7 @@ RUN apk add --no-cache \
     py3-pip && \
     python3 -m venv /opt/venv && \
     . /opt/venv/bin/activate && \
-    pip install --upgrade pip setuptools wheel
+    pip install --upgrade pip setuptools wheel ollama chromadb
 
 # Configurar variáveis de ambiente do Puppeteer
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
