@@ -22,7 +22,7 @@ RUN apk add --no-cache \
     py3-pip && \
     python3 -m venv /opt/venv && \
     . /opt/venv/bin/activate && \
-    pip install --upgrade pip \
+    pip install --upgrade pip && \
     pip install setuptools ollama chromadb
 
 # Configurar variáveis de ambiente do Puppeteer
