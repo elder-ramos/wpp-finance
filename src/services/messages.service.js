@@ -1,7 +1,7 @@
-import ollama from "ollama";
+import { Ollama } from "ollama";
 
 class MessagesService {
-  ollama = new ollama("http://ollama:11434/api/generate");
+  ollama = new Ollama({host: "http://ollama:11434/api/generate"});
   async switchMessageType(message) {
     switch (this.messageFirstWord(message)) {
       case "/ia":
