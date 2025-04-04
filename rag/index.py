@@ -1,23 +1,17 @@
 import ollama
 import chromadb
 
-documents = [
-    # Regras de Extração
-    ("amount", "extrair_valor_monetario", {"padrao": "R\$\s*([\d.,]+)", "tipo": "float"}),
-    ("transaction_date", "extrair_data", {"formato": "%d/%m/%Y", "padrao_data_futura": False}),
-    ("payment_method", "definir_padrao", {"valor_padrao": "pix", "opcoes_validas": ["pix", "dinheiro", "cartão_credito", "cartão_debito", "transferencia"]}),
-
-    # Regras de Validação
-    ("category/subcategory", "validar_mapa", {"referencia": "CATEGORIAS_FIXAS"}),
-    ("transaction_date", "validar_data", {"limite_maximo": "datetime.now()"}),
-    ("credit_status", "aplicar_se", {"condicao": "payment_method == 'cartão_credito'", "valor": "pending"}),
-
-    # Regras de Formatação
-    ("amount", "converter_decimal", {"casas_decimais": 2}),
-    ("transaction_date", "adicionar_horario", {"horario_padrao": "00:00:00"}),
-
-    # Regras de Erro
-    ("*", "priorizar_erro", {"ordem": ["valor_invalido", "data_invalida", "metodo_pagamento_invalido"]})
+documents = [  
+  "Extrair valor monetário no formato R$ X.XXX,XX e converter para número decimal",  
+  "Identificar datas no padrão DD/MM/AAAA com validação contra datas futuras",  
+  "Método de pagamento deve ser: pix/dinheiro/cartão_credito/cartão_debito/transferencia (padrão: pix)",  
+  "Mapear categorias e subcategorias exclusivamente da lista fornecida",  
+  "Cartão de crédito sempre define credit_status=pending e exige total_installments se aplicável",  
+  "Termos como 'hoje' ou 'ontem' devem ser convertidos para datas reais",  
+  "Erros prioritários: valor ausente > data inválida > método de pagamento não reconhecido",  
+  "Descrições devem identificar entidades-chave: Supermercado → Alimentação, Netflix → Streaming",  
+  "Ignorar caracteres não numéricos no valor monetário exceto vírgula decimal",  
+  "Campos opcionais omitidos devem ser excluídos do JSON final"  
 ]
 
 client = chromadb.Client()
