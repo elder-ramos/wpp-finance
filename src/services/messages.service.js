@@ -1,6 +1,7 @@
-import axios from "axios";
+import ollama from "ollama";
 
 class MessagesService {
+  ollama = new Ollama("http://ollama:11434/api/generate");
   async switchMessageType(message) {
     switch (this.messageFirstWord(message)) {
       case "/ia":
@@ -19,11 +20,26 @@ class MessagesService {
     return "";
   }
 
-  async requestIA(message) {
+  async requestIA(message, chatId, messages = []) {
     try {
       console.log("Requesting IA...");
-      const iaResponse = await axios.post("http://ollama:11434/api/generate", {
+      const iaResponse = await this.ollama.chat({
         model: "deepseek-r1:1.5b",
+        template: '',
+        messages: [
+          ...messages,
+          {
+            role: "user",
+            content: message,
+          },
+        ],
+        options: {
+          temperature: 0.5,
+          top_p: 0.5,
+          max_tokens: 2000,
+          num_predict: 5432,
+          stop: ["\n\n"],
+        },
         prompt: `
           Instruções: Analise descrições de transações e converta-as em JSON, priorizando precisão.
           JSON format: 
