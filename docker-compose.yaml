@@ -33,6 +33,15 @@ services:
     networks:
       - app-network
 
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma-data:/data
+    networks:
+      - app-network
+
 volumes:
   postgres-data:
   wwebjsauth:
