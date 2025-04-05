@@ -14,7 +14,9 @@ const documents = [
     "Campos opcionais omitidos devem ser excluídos do JSON final",
 ];
 
-const client = new ChromaClient();
+const client = new ChromaClient({
+  path: 'http://chroma:8000'
+});
 const ollama = new Ollama({
     host: "http://ollama:11434",
     model: "deepseek-r1:1.5b",
