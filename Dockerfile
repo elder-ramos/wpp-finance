@@ -17,7 +17,7 @@ RUN apk add --no-cache \
     libxrandr \
     libxrender \
     libxscrnsaver \
-    libxtst \
+    libxtst
 
 # Configurar variáveis de ambiente do Puppeteer
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
