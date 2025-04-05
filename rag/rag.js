@@ -1,5 +1,5 @@
-import { Ollama } from "ollama";
-import { ChromaClient } from "chromadb";
+const { Ollama } = require("ollama");
+const { ChromaClient } = require("chromadb");
 
 const documents = [
     "Extrair valor monetário no formato R$ X.XXX,XX e converter para número decimal",
