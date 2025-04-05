@@ -1,8 +1,8 @@
-import { Client, LocalAuth } from "whatsapp-web.js";
-import { generate } from "qrcode-terminal";
-import messagesServiceClass from "./services/messages.service";
-import utilServiceClass from "./services/utils.service";
-import { Sequelize } from "sequelize";
+const { Client, LocalAuth } = require("whatsapp-web.js");
+const qrcode = require("qrcode-terminal");
+const messagesServiceClass = require("./services/messages.service").default;
+const utilServiceClass = require("./services/utils.service").default;
+const { Sequelize } = require("sequelize");
 
 const sequelize = new Sequelize(
   "postgres://user:password@postgres:5432/postgres"
@@ -36,7 +36,7 @@ const client = new Client({
 });
 
 client.on("qr", (qr) => {
-  generate(qr, { small: true });
+  qrcode.generate(qr, { small: true });
 });
 
 client.on("ready", () => {
