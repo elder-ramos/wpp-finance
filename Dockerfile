@@ -18,10 +18,6 @@ RUN apk add --no-cache \
     libxrender \
     libxscrnsaver \
     libxtst \
-    python3 \
-    py3-pip && \
-    python3 -m venv /opt/venv && \
-    . /opt/venv/bin/activate
 
 # Configurar variáveis de ambiente do Puppeteer
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
