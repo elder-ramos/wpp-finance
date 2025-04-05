@@ -46,6 +46,7 @@ volumes:
   postgres-data:
   wwebjsauth:
   wwebjscache:
+  chroma-data:
 
 networks:
   app-network:
