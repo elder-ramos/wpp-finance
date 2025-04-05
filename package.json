@@ -1,6 +1,7 @@
 {
   "name": "wpp-finance",
   "version": "0.0.1",
+  "type": "module",
   "description": "A bot to control finances through WhatsApp",
   "main": "src/index.js",
   "scripts": {
