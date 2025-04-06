@@ -47,7 +47,18 @@ class MessagesService {
         messages: [
           {
             role: "system",
-            content: `Você é um assistente de IA que analisa mensagens e converte em JSON. Você deve seguir as instruções e regras fornecidas.`,
+            content: `Instruções: Analise descrições de transações e converta-as em JSON, priorizando precisão. Você deve identificar na mensagem os seguintes campos: valor, descrição, categoria, método de pagamento e data. 
+          Tudo isso virá escrito de forma natural, mas será convertido em JSON por você. Identifique os campos e faça a conversão. 
+          Você deve seguir as instruções e regras fornecidas. Você deve seguir o seguinte formato de saída: ${zodToJsonSchema(outputSchema)}.
+          Exemplo de entrada: "Eu comprei 50 reais de doces em Claudia Cakes"
+          Exemplo de saída: {"valor": 50, "descricao": "doces", "categoria": "Alimentação", "metodo_pagamento": "pix", "data": "2023-10-01"}
+
+          Regras:
+          - transaction_date: Não pode ser futuro.
+          - Use APENAS categorias/subcategorias fornecidas.
+          - Moeda: Reais (R$).
+
+          Saída: Apenas o JSON. Se inválido, retorne {'error': 'Mensagem de erro'}.`,
           },
           {
             role: "system",
@@ -65,16 +76,6 @@ class MessagesService {
           stop: ["\n\n"],
         },
         prompt: `
-          Instruções: Analise descrições de transações e converta-as em JSON, priorizando precisão.
-          Exemplo de entrada: "Eu comprei 50 reais de doces em Claudia Cakes"
-          Exemplo de saída: {"valor": 50, "descricao": "doces", "categoria": "Alimentação", "metodo_pagamento": "pix", "data": "2023-10-01"}
-          
-          Regras:
-          - transaction_date: Não pode ser futuro.
-          - Use APENAS categorias/subcategorias fornecidas.
-          - Moeda: Reais (R$).
-
-          Saída: Apenas o JSON. Se inválido, retorne {'error': 'Mensagem de erro'}.
           Com base em tudo dito, analise a seguinte mensagem: '${message}'.`,
         stream: false,
       });
