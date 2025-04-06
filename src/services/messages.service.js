@@ -18,7 +18,7 @@ const outputSchema = z.object({
   parcelas: z.number().optional(),
 });
 class MessagesService {
-  ollama = new Ollama({ host: "http://ollama:11434/api/generate" });
+  ollama = new Ollama({ host: "http://ollama:11434" });
 
   async switchMessageType(message) {
     switch (this.messageFirstWord(message)) {
