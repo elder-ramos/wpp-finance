@@ -42,7 +42,7 @@ class MessagesService {
     try {
       console.log("Requesting IA...");
       const iaResponse = await this.ollama.chat({
-        model: "deepseek-r1:1.5b",
+        model: "llama2",
         // template: "",
         messages: [
           {
