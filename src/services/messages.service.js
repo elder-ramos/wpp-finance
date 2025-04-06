@@ -1,7 +1,25 @@
 import { Ollama } from "ollama";
+import { z } from "zod";
+import { zodToSchema } from "zod-to-json-schema";
+import { Constants } from "../../constants.js";
 
+const outputSchema = z.object({
+  valor: z.number().nonnegative(),
+  descricao: z.string(),
+  categoria: z.enum(Constants.CATEGORIES),
+  // subcategoria: "Livros",
+  metodo_pagamento: z.enum([
+    "dinheiro",
+    "pix",
+    "cartão_credito",
+    "cartão_debito",
+  ]).default("pix"),
+  data: z.date().default(new Date()),
+  parcelas: z.number().optional(),
+});
 class MessagesService {
-  ollama = new Ollama({host: "http://ollama:11434/api/generate"});
+  ollama = new Ollama({ host: "http://ollama:11434/api/generate" });
+
   async switchMessageType(message) {
     switch (this.messageFirstWord(message)) {
       case "/ia":
@@ -25,98 +43,32 @@ class MessagesService {
       console.log("Requesting IA...");
       const iaResponse = await this.ollama.chat({
         model: "deepseek-r1:1.5b",
-        template: '',
+        template: "",
         messages: [
+          {
+            role: "system",
+            content: `Você é um assistente de IA que analisa mensagens e converte em JSON. Você deve seguir as instruções e regras fornecidas.`,
+          },
+          {
+            role: "system",
+            content: `Você deve seguir o seguinte formato de saída: ${zodToSchema(outputSchema)}`,
+          },
           ...messages,
           {
             role: "user",
             content: message,
           },
         ],
+        format: zodToSchema(outputSchema),
         options: {
-          temperature: 0.5,
-          top_p: 0.5,
-          max_tokens: 2000,
           num_predict: 5432,
           stop: ["\n\n"],
         },
         prompt: `
           Instruções: Analise descrições de transações e converta-as em JSON, priorizando precisão.
-          JSON format: 
-          {
-          amount (number), 
-          description, 
-          transaction_date (datetime. default = now. brazillian pattern), 
-          payment_method, 
-          category, 
-          subcategory, 
-          credit_status (nullable. always "pending" if is credit card.), 
-          total_installments (nullable, optional field, only if payment = credit_card).
-          }
-
-
-        Categorias e subcategorias: 
-        [
-          {
-            "category": "Moradia",
-            "subcategories": ["Aluguel", "Condomínio", "IPTU", "Reparos"]
-          },
-          {
-            "category": "Alimentação",
-            "subcategories": ["Supermercado", "Restaurantes", "Lanches"]
-          },
-          {
-            "category": "Transporte",
-            "subcategories": ["Combustível", "Uber/Táxi/99", "Manutenção do carro"]
-          },
-          {
-            "category": "Lazer",
-            "subcategories": ["Cinema", "Viagens", "Hobbies", "Esportes"]
-          },
-          {
-            "category": "Assinaturas",
-            "subcategories": ["Streaming", "Serviços"]
-          },
-          {
-            "category": "Saúde",
-            "subcategories": ["Médico", "Farmácia", "Academia"]
-          },
-          {
-            "category": "Educação",
-            "subcategories": ["Cursos", "Livros", "Material escolar"]
-          },
-          {
-            "category": "Dívidas",
-            "subcategories": ["Cartão de crédito", "Empréstimo bancário"]
-          },
-          {
-            "category": "Gastos Fixos",
-            "subcategories": ["Contas de luz/água", "Internet", "Seguros"]
-          },
-          {
-            "category": "Imprevistos",
-            "subcategories": ["Consertos emergenciais", "Multas"]
-          },
-          {
-            "category": "Doações",
-            "subcategories": ["Presentes", "Caridade"]
-          },
-          {
-            "category": "Vestuário",
-            "subcategories": ["Roupas", "Cosméticos", "Cabeleireiro"]
-          },
-          {
-            "category": "Investimentos",
-            "subcategories": ["Aplicações", "Reserva de emergência"]
-          },
-          {
-            "category": "Outros",
-            "subcategories": ["Outros"]
-          }
-        ]
-
-          Payment_method: dinheiro, pix, cartão_credito, cartão_debito, transferencia. o default deve ser pix.
-
+          Exemplo de entrada: "Eu comprei 50 reais de doces em Claudia Cakes"
+          Exemplo de saída: {"valor": 50, "descricao": "doces", "categoria": "Alimentação", "metodo_pagamento": "pix", "data": "2023-10-01"}
+          
           Regras:
           - transaction_date: Não pode ser futuro.
           - Use APENAS categorias/subcategorias fornecidas.
@@ -124,7 +76,6 @@ class MessagesService {
 
           Saída: Apenas o JSON. Se inválido, retorne {'error': 'Mensagem de erro'}.
           Com base em tudo dito, analise a seguinte mensagem: '${message}'.`,
-        format: "json",
         stream: false,
       });
 
