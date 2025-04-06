@@ -1,6 +1,6 @@
 import { Ollama } from "ollama";
 import { z } from "zod";
-import { zodToSchema } from "zod-to-json-schema";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import { Constants } from "../../constants.js";
 
 const outputSchema = z.object({
@@ -59,7 +59,7 @@ class MessagesService {
             content: message,
           },
         ],
-        format: zodToSchema(outputSchema),
+        format: zodToJsonSchema(outputSchema),
         options: {
           num_predict: 5432,
           stop: ["\n\n"],
