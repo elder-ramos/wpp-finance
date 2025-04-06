@@ -79,8 +79,8 @@ class MessagesService {
         stream: false,
       });
 
-      console.log("IA Response -> : ", iaResponse.data.response);
-      return iaResponse.data.response;
+      console.log("IA Response -> : ", iaResponse);
+      return iaResponse;
     } catch (error) {
       console.error("Error: ", error);
       return String(error);
