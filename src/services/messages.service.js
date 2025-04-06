@@ -43,7 +43,7 @@ class MessagesService {
       console.log("Requesting IA...");
       const iaResponse = await this.ollama.chat({
         model: "deepseek-r1:1.5b",
-        template: "",
+        // template: "",
         messages: [
           {
             role: "system",
@@ -54,14 +54,14 @@ class MessagesService {
             content: `Você deve seguir o seguinte formato de saída: ${zodToJsonSchema(outputSchema)}`,
           },
           ...messages,
-          {
-            role: "user",
-            content: message,
-          },
+          // {
+          //   role: "user",
+          //   content: message,
+          // },
         ],
         format: zodToJsonSchema(outputSchema),
         options: {
-          num_predict: 5432,
+          // num_predict: 5432,
           stop: ["\n\n"],
         },
         prompt: `
