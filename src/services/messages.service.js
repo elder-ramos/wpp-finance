@@ -51,7 +51,7 @@ class MessagesService {
           },
           {
             role: "system",
-            content: `Você deve seguir o seguinte formato de saída: ${zodToSchema(outputSchema)}`,
+            content: `Você deve seguir o seguinte formato de saída: ${zodToJsonSchema(outputSchema)}`,
           },
           ...messages,
           {
