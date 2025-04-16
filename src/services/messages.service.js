@@ -39,7 +39,7 @@ class MessagesService {
     try {
       console.log("Requesting IA...");
       const iaResponse = await this.ollama.chat({
-        model: "gemma",
+        model: "gemma:2b",
         // template: "",
         messages: [
           {
