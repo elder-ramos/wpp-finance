@@ -3,19 +3,20 @@ import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { Constants } from "../../constants.js";
 
-const outputSchema = z.object({
-  valor: z.number().nonnegative(),
-  descricao: z.string(),
-  categoria: z.enum(Constants.CATEGORIES),
-  // subcategoria: "Livros",
-  metodo_pagamento: z
-    .enum(["dinheiro", "pix", "cartão_credito", "cartão_debito"])
-    .default("pix"),
-  data: z.date().default(new Date()),
-  parcelas: z.number().optional(),
-});
 class MessagesService {
   ollama = new Ollama({ host: "http://ollama:11434" });
+
+  outputSchema = z.object({
+    valor: z.number().nonnegative(),
+    descricao: z.string(),
+    categoria: z.enum(Constants.CATEGORIES),
+    // subcategoria: "Livros",
+    metodo_pagamento: z
+      .enum(["dinheiro", "pix", "cartão_credito", "cartão_debito"])
+      .default("pix"),
+    data: z.date().default(new Date()),
+    parcelas: z.number().optional(),
+  });
 
   async switchMessageType(message) {
     switch (this.messageFirstWord(message)) {
@@ -40,7 +41,6 @@ class MessagesService {
       console.log("Requesting IA...");
       const iaResponse = await this.ollama.chat({
         model: "gemma:2b",
-        // template: "",
         messages: [
           {
             role: "system",
@@ -69,10 +69,6 @@ class MessagesService {
             content: `
           Com base em tudo dito, analise a seguinte mensagem: '${message}'.`,
           },
-          // {
-          //   role: "user",
-          //   content: message,
-          // },
         ],
         format: zodToJsonSchema(outputSchema),
         options: {
