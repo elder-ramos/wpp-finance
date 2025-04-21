@@ -1,5 +1,4 @@
-const { Sequelize } = require("sequelize");
-const { z } = require("zod");
+import { Sequelize } from "sequelize";
 
 const sequelize = new Sequelize(
   "postgres://user:password@postgres:5432/postgres"
