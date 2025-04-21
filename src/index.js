@@ -2,31 +2,11 @@ const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
 const messagesServiceClass = require("./services/messages.service").default;
 const utilServiceClass = require("./services/utils.service").default;
-const { Sequelize } = require("sequelize");
-
-const sequelize = new Sequelize(
-  "postgres://user:password@postgres:5432/postgres"
-);
-const Users = sequelize.define(
-  "Users",
-  {
-    phone: {
-      type: Sequelize.STRING(30),
-      allowNull: false,
-      primaryKey: true,
-    },
-    user_name: {
-      type: Sequelize.STRING(50),
-      allowNull: false,
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
+const dbServiceClass = require("./services/db.service").default;
 
 const messagesService = new messagesServiceClass();
 const utilsService = new utilServiceClass();
+const dbService = new dbServiceClass();
 
 const client = new Client({
   authStrategy: new LocalAuth(),
@@ -50,16 +30,57 @@ client.on("message", async (msg) => {
   }
 
   const responseMessage = await messagesService.switchMessageType(msg.body);
-  console.log("responseMessage: ", responseMessage);
-  await msg.reply(responseMessage);
 
-  console.log("Passou de tudo");
+  console.log("responseMessage: ", responseMessage);
+  if (responseMessage.message.content && responseMessage.done == true) {
+    const parsedResponse = JSON.parse(responseMessage.message.content);
+    const zodValidation =
+      messagesService.outputSchema.safeParse(parsedResponse);
+
+    if (!zodValidation.success) {
+      console.error("Zod validation error: ", zodValidation.error);
+      msg.reply("Desculpe, não consegui entender a mensagem.");
+      return;
+    }
+
+    const { valor, descricao, categoria, metodo_pagamento, dataResponse } =
+      parsedResponse;
+
+    // Aqui você pode fazer o que quiser com os dados extraídos
+    dbService
+      .transactionCreate({
+        valor,
+        descricao,
+        categoria,
+        metodo_pagamento,
+        data: dataResponse,
+        user_id: msg.from, // Aqui você pode usar o ID do usuário
+      })
+      .catch((error) => {
+        console.error("Error creating transaction: ", error);
+      });
+    console.log("Transação criada com sucesso!");
+
+    console.log("Valor: ", valor);
+    console.log("Descrição: ", descricao);
+    console.log("Categoria: ", categoria);
+    console.log("Método de Pagamento: ", metodo_pagamento);
+    console.log("Data: ", dataResponse);
+
+    msg.reply(
+      `Aqui estão os detalhes da sua transação:\n\n` +
+        `💰 *Valor:* ${valor}\n` +
+        `📝 *Descrição:* ${descricao}\n` +
+        `📂 *Categoria:* ${JSON.stringify(categoria)}\n` +
+        `💳 *Método de Pagamento:* ${metodo_pagamento}\n` +
+        `📅 *Data:* ${dataResponse}\n\n` +
+        `Se precisar de algo mais, é só me chamar! 😊`
+    );
+  }
 
   const userData = utilsService.extractUserData(msg);
-  const [_User, created] = await Users.findOrCreate({
-    where: { phone: userData.phone },
-    defaults: { user_name: userData.name },
-  });
+  const [user, created] = await dbService.userFindOrCreate(userData);
+
   if (created) {
     client.sendMessage(
       msg.from,
