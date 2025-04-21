@@ -33,7 +33,8 @@ client.on("message", async (msg) => {
 
   console.log("responseMessage: ", responseMessage);
   if (responseMessage.message.content && responseMessage.done == true) {
-    const parsedResponse = JSON.parse(responseMessage.message.content);
+    let parsedResponse = JSON.parse(responseMessage.message.content);
+    parsedResponse.dataResponse = new Date(parsedResponse.dataResponse);
     const zodValidation =
       messagesService.outputSchema.safeParse(parsedResponse);
 

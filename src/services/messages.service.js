@@ -14,7 +14,7 @@ class MessagesService {
     metodo_pagamento: z
       .enum(["dinheiro", "pix", "cartão_credito", "cartão_debito"])
       .default("pix"),
-    data: z.date().default(new Date()),
+    dataResponse: z.date().default(new Date()),
     parcelas: z.number().optional(),
   });
 
