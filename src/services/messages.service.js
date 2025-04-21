@@ -54,6 +54,8 @@ class MessagesService {
           - transaction_date: Não pode ser futuro.
           - Use APENAS categorias/subcategorias fornecidas.
           - Moeda: Reais (R$).
+          - O dia de hoje é considerado ${new Date().toLocaleDateString("pt-BR")}.
+          - Se a data não for informada, considere a data de hoje.
 
           Saída: Apenas o JSON. Se inválido, retorne {'error': 'Mensagem de erro'}.`,
           },
