@@ -47,7 +47,7 @@ class MessagesService {
             content: `Instruções: Analise descrições de transações e converta-as em JSON, priorizando precisão. Você deve identificar na mensagem os seguintes campos: valor, descrição, categoria, método de pagamento e data. 
           Tudo isso virá escrito de forma natural, mas será convertido em JSON por você. Identifique os campos e faça a conversão. 
           Você deve seguir as instruções e regras fornecidas. Você deve seguir o seguinte formato de saída: ${zodToJsonSchema(
-            outputSchema
+            this.outputSchema
           )}.
 
           Regras:
@@ -60,7 +60,7 @@ class MessagesService {
           {
             role: "system",
             content: `Você deve seguir o seguinte formato de saída: ${zodToJsonSchema(
-              outputSchema
+              this.outputSchema
             )}`,
           },
           ...messages,
@@ -70,7 +70,7 @@ class MessagesService {
           Com base em tudo dito, analise a seguinte mensagem: '${message}'.`,
           },
         ],
-        format: zodToJsonSchema(outputSchema),
+        format: zodToJsonSchema(this.outputSchema),
         options: {
           // num_predict: 5432,
           stop: ["\n\n"],
