@@ -18,9 +18,9 @@ class MessagesService {
     metodo_pagamento: z
       .enum(["dinheiro", "pix", "cartão_credito", "cartão_debito"])
       .default("pix"),
-    dataResponse: z.date().default(new Date().toLocaleString("pt-BR", { timeZone: "America/Recife" })),
+    dataResponse: z.string().default(new Date(Date.now()).toLocaleDateString("pt-BR", { timeZone: "America/Recife" })),
     parcelas: z.number().optional(),
-  });
+  });;
 
   async switchMessageType(message) {
     switch (this.messageFirstWord(message)) {

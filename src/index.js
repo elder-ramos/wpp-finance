@@ -34,7 +34,6 @@ client.on("message", async (msg) => {
   console.log("responseMessage: ", responseMessage);
   if (responseMessage.message && responseMessage.message.content && responseMessage.done == true) {
     let parsedResponse = JSON.parse(responseMessage.message.content);
-    parsedResponse.dataResponse = new Date(parsedResponse.dataResponse).toLocaleString("pt-BR", { timeZone: "America/Recife" });
     const zodValidation =
       messagesService.outputSchema.safeParse(parsedResponse);
 
