@@ -18,7 +18,7 @@ class MessagesService {
     metodo_pagamento: z
       .enum(["dinheiro", "pix", "cartão_credito", "cartão_debito"])
       .default("pix"),
-    dataResponse: z.date().default(new Date()),
+    dataResponse: z.date().default(new Date().toLocaleString("pt-BR", { timeZone: "America/Recife" })),
     parcelas: z.number().optional(),
   });
 
@@ -58,9 +58,7 @@ class MessagesService {
           - transaction_date: Não pode ser futuro.
           - Use APENAS categorias/subcategorias fornecidas.
           - Moeda: Reais (R$).
-          - O dia de hoje é considerado ${new Date().toLocaleDateString(
-            "pt-BR"
-          )}.
+          - O dia de hoje é considerado ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Recife" })}.
           - Se a data não for informada, considere a data de hoje.
 
           Saída: Apenas o JSON. Se inválido, retorne {'error': 'Mensagem de erro'}.`,
