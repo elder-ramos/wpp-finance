@@ -271,11 +271,10 @@ class StickerService {
         
         console.log(`🎨 Configurações: quality=${qualitySettings.quality}, effort=${qualitySettings.effort}, alphaQuality=${qualitySettings.alphaQuality}`);
         
-        // Converte para WebP animado preservando transparência
+        // Converte para WebP animado sem redimensionar (manter qualidade)
         const webpBuffer = await sharp(input, { 
           animated: true,  // CRÍTICO: Force animated processing
-          limitInputPixels: false,  // Remove limite de pixels
-          pages: -1  // Processa todas as páginas/frames
+          limitInputPixels: false  // Remove limite de pixels
         })
           .webp({
             quality: qualitySettings.quality,
@@ -286,8 +285,6 @@ class StickerService {
             animated: true, // FORÇA ANIMAÇÃO
             loop: 0, // Loop infinito
             delay: metadata.delay || [100], // Preserva delay original ou usa 100ms
-            nearLossless: false, // Evita problemas com transparência
-            mixed: true // Permite mixed mode para melhor transparência
           })
           .toBuffer();
           
@@ -299,10 +296,7 @@ class StickerService {
         if (webpBuffer.length < 50000 && metadata.pages > 50) {
           console.log('⚠️ WebP muito pequeno para número de frames, tentando com qualidade maior...');
           
-          const webpBufferHQ = await sharp(input, { 
-            animated: true,
-            pages: -1
-          })
+          const webpBufferHQ = await sharp(input, { animated: true })
             .webp({
               quality: 70,
               lossless: false,
@@ -312,8 +306,6 @@ class StickerService {
               animated: true,
               loop: 0,
               delay: metadata.delay || [100],
-              nearLossless: false,
-              mixed: true
             })
             .toBuffer();
             
@@ -442,19 +434,14 @@ class StickerService {
         // para evitar loop infinito
         const qualitySettings = this._getQualitySettings(metadata.pages);
         
-        const webpB64 = await sharp(input, {
-          animated: true,
-          pages: -1
-        })
+        const webpB64 = await sharp(input)
           .webp({
             quality: qualitySettings.quality,
             lossless: false,
             effort: qualitySettings.effort,
-            smartSubsample: false,
+            smartSubsample: true,
             alphaQuality: qualitySettings.alphaQuality,
             animated: true, // Preserva animação
-            nearLossless: false,
-            mixed: true
           })
           .toBuffer()
           .then(buffer => buffer.toString("base64"));
