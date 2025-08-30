@@ -156,7 +156,7 @@ class StickerService {
         const ffmpegAvailable = await this._checkFFmpegAvailability();
         
         if (!ffmpegAvailable) {
-          console.log(`FFmpeg não disponível para ${ext.toUpperCase()}, criando placeholder...`);
+          console.log(`FFmpeg não disponível para ${ext.toUpperCase()}...`);
           
           await client.sendMessage(chatId, "⚠️ FFmpeg não está disponível no servidor. Não é possível processar vídeos para stickers animados.\n\nPor favor, envie GIFs animados para stickers animados ou use imagens estáticas.\n\nEm resumo, Elder fez merda");
           return;
