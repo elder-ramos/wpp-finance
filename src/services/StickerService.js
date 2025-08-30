@@ -1,5 +1,8 @@
 ﻿const { MessageMedia } = require("whatsapp-web.js");
 const sharp = require("sharp");
+const ffmpeg = require("fluent-ffmpeg");
+const fs = require("fs");
+const path = require("path");
 
 class StickerService {
   _getQualitySettings(pages) {
@@ -9,43 +12,60 @@ class StickerService {
   }
 
   async _convertVideoToSticker(base64Data, ext) {
-    console.log(`Vídeo ${ext.toUpperCase()} detectado - criando placeholder`);
+    console.log(`Processando vídeo ${ext.toUpperCase()} com FFmpeg...`);
+    
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const inputPath = path.join(tempDir, `input_${Date.now()}.${ext}`);
+    const outputPath = path.join(tempDir, `output_${Date.now()}.gif`);
 
     try {
-      const placeholderBuffer = await sharp({
-        create: {
-          width: 512,
-          height: 512,
-          channels: 4,
-          background: { r: 45, g: 55, b: 72, alpha: 1 },
-        },
-      })
-        .composite([
-          {
-            input: Buffer.from(`
-          <svg width="512" height="512">
-            <rect width="512" height="512" fill="#2d3748"/>
-            <text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" 
-                  fill="white" font-size="32" font-family="Arial, sans-serif">
-               ${ext.toUpperCase()}
-            </text>
-            <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" 
-                  fill="#a0aec0" font-size="18" font-family="Arial, sans-serif">
-              Vídeo convertido
-            </text>
-          </svg>
-        `),
-            top: 0,
-            left: 0,
-          },
-        ])
-        .png()
-        .toBuffer();
+      // Salva o vídeo base64 como arquivo temporário
+      const videoBuffer = Buffer.from(base64Data, 'base64');
+      fs.writeFileSync(inputPath, videoBuffer);
 
-      return placeholderBuffer.toString("base64");
+      // Converte vídeo para GIF usando FFmpeg
+      await new Promise((resolve, reject) => {
+        ffmpeg(inputPath)
+          .inputOptions(['-t 10']) // Limita a 10 segundos
+          .outputOptions([
+            '-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000',
+            '-r 15', // 15 FPS
+            '-f gif'
+          ])
+          .output(outputPath)
+          .on('end', () => {
+            console.log('Conversão FFmpeg concluída');
+            resolve();
+          })
+          .on('error', (err) => {
+            console.error('Erro FFmpeg:', err);
+            reject(err);
+          })
+          .run();
+      });
+
+      // Lê o GIF gerado e converte para base64
+      const gifBuffer = fs.readFileSync(outputPath);
+      const gifBase64 = gifBuffer.toString('base64');
+
+      // Limpa arquivos temporários
+      if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+
+      return gifBase64;
+
     } catch (error) {
-      console.error("Erro ao criar placeholder:", error);
-      throw new Error("Não foi possível processar o vídeo");
+      console.error("Erro ao converter vídeo com FFmpeg:", error);
+      
+      // Limpa arquivos temporários em caso de erro
+      if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+      
+      throw new Error(`Não foi possível processar o vídeo ${ext.toUpperCase()}`);
     }
   }
 
@@ -56,25 +76,15 @@ class StickerService {
       const isVideo = !["gif"].includes(ext);
 
       if (isVideo) {
-        // Para vídeos MP4, WebM, etc., cria um placeholder
-        console.log(
-          `Vídeo ${ext.toUpperCase()} detectado - criando sticker placeholder`
-        );
+        // Para vídeos MP4, WebM, etc., converte com FFmpeg
+        console.log(`Convertendo vídeo ${ext.toUpperCase()} para sticker animado com FFmpeg...`);
 
-        const placeholderBase64 = await this._convertVideoToSticker(
-          base64Data,
-          ext
-        );
-        const webpB64 = await this.base64ToStickerWebp(placeholderBase64);
-
-        const media = new MessageMedia("image/webp", webpB64);
-        await client.sendMessage(chatId, media, {
-          sendMediaAsSticker: true,
-          stickerAuthor: "WPP Finance Bot",
-          stickerName: `Sticker ${ext.toUpperCase()}`,
-        });
-
-        console.log(`Placeholder ${ext.toUpperCase()} enviado!`);
+        const gifBase64 = await this._convertVideoToSticker(base64Data, ext);
+        
+        // Processa o GIF gerado como sticker animado
+        await this.sendStickerFromBase64(client, chatId, gifBase64);
+        
+        console.log(`Sticker animado ${ext.toUpperCase()} enviado!`);
         return;
       }
 
@@ -83,17 +93,24 @@ class StickerService {
       await this.sendStickerFromBase64(client, chatId, base64Data);
     } catch (error) {
       console.error(`Erro ${ext}:`, error);
-      await this._animatedStickerErrorHandler(client, chatId);
+      await this._animatedStickerErrorHandler(client, chatId, ext);
     }
   }
 
-  async _animatedStickerErrorHandler(client, chatId) {
+  async _animatedStickerErrorHandler(client, chatId, ext = '') {
     try {
       console.log("Animated sticker error handler");
       // Envia mensagem de erro para o usuário
       await client.sendMessage(
         chatId,
-        "❌ Erro ao processar sua mídia como um sticker animado.\n\nAguarde novas atualizações ou tente enviar uma imagem em formato PNG, JPEG ou GIF."
+        `❌ **Erro ao processar ${ext ? ext.toUpperCase() : 'mídia'}**\n\n` +
+        "• ✅ **GIFs**: Processamento direto\n" +
+        "• ✅ **Vídeos MP4/WebM/AVI**: Conversão com FFmpeg\n\n" +
+        "💡 **Possíveis causas do erro:**\n" +
+        "• Arquivo muito grande\n" +
+        "• Formato não suportado\n" +
+        "• Vídeo muito longo (limite: 10 segundos)\n\n" +
+        "🔄 **Tente novamente com um arquivo menor ou mais curto!**"
       );
     } catch (fallbackError) {
       console.error("Erro no fallback também:", fallbackError);
@@ -203,7 +220,7 @@ class StickerService {
         // Envia mensagem explicativa para o usuário
         await client.sendMessage(
           chatId,
-          "📎 *Formato não suportado*\n\nPor favor, envie:\n• 🖼️ Imagens\n•🎬 Vídeos\n\nO bot irá converter automaticamente para sticker!"
+          "📎 *Formato não suportado*\n\nPor favor, envie:\n• 🖼️ **Imagens** (JPG, PNG)\n• 🎬 **Vídeos** (MP4, WebM, AVI, MOV)\n• 🎞️ **GIFs animados**\n\n✨ O bot converte automaticamente para stickers animados!"
         );
         return;
       }
