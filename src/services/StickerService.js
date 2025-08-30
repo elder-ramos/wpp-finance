@@ -5,6 +5,32 @@ const fs = require("fs");
 const path = require("path");
 
 class StickerService {
+  constructor() {
+    this.ffmpegAvailable = null;
+  }
+
+  async _checkFFmpegAvailability() {
+    if (this.ffmpegAvailable !== null) {
+      return this.ffmpegAvailable;
+    }
+
+    try {
+      await new Promise((resolve, reject) => {
+        ffmpeg()
+          .format("mp4")
+          .on("start", () => resolve())
+          .on("error", (err) => reject(err));
+      });
+      this.ffmpegAvailable = true;
+      console.log("✅ FFmpeg disponível");
+    } catch (error) {
+      this.ffmpegAvailable = false;
+      console.log("❌ FFmpeg não disponível:", error.message);
+    }
+
+    return this.ffmpegAvailable;
+  }
+
   _getQualitySettings(pages) {
     if (pages > 100) return { quality: 30, effort: 4, alphaQuality: 40 };
     if (pages > 50) return { quality: 45, effort: 5, alphaQuality: 50 };
@@ -13,8 +39,8 @@ class StickerService {
 
   async _convertVideoToSticker(base64Data, ext) {
     console.log(`Processando vídeo ${ext.toUpperCase()} com FFmpeg...`);
-    
-    const tempDir = path.join(__dirname, '../../temp');
+
+    const tempDir = path.join(__dirname, "../../temp");
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
@@ -24,25 +50,25 @@ class StickerService {
 
     try {
       // Salva o vídeo base64 como arquivo temporário
-      const videoBuffer = Buffer.from(base64Data, 'base64');
+      const videoBuffer = Buffer.from(base64Data, "base64");
       fs.writeFileSync(inputPath, videoBuffer);
 
       // Converte vídeo para GIF usando FFmpeg
       await new Promise((resolve, reject) => {
         ffmpeg(inputPath)
-          .inputOptions(['-t 10']) // Limita a 10 segundos
+          .inputOptions(["-t 10"]) // Limita a 10 segundos
           .outputOptions([
-            '-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000',
-            '-r 15', // 15 FPS
-            '-f gif'
+            "-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
+            "-r 15", // 15 FPS
+            "-f gif",
           ])
           .output(outputPath)
-          .on('end', () => {
-            console.log('Conversão FFmpeg concluída');
+          .on("end", () => {
+            console.log("Conversão FFmpeg concluída");
             resolve();
           })
-          .on('error', (err) => {
-            console.error('Erro FFmpeg:', err);
+          .on("error", (err) => {
+            console.error("Erro FFmpeg:", err);
             reject(err);
           })
           .run();
@@ -50,22 +76,23 @@ class StickerService {
 
       // Lê o GIF gerado e converte para base64
       const gifBuffer = fs.readFileSync(outputPath);
-      const gifBase64 = gifBuffer.toString('base64');
+      const gifBase64 = gifBuffer.toString("base64");
 
       // Limpa arquivos temporários
       if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
       if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
 
       return gifBase64;
-
     } catch (error) {
       console.error("Erro ao converter vídeo com FFmpeg:", error);
-      
+
       // Limpa arquivos temporários em caso de erro
       if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
       if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-      
-      throw new Error(`Não foi possível processar o vídeo ${ext.toUpperCase()}`);
+
+      throw new Error(
+        `Não foi possível processar o vídeo ${ext.toUpperCase()}`
+      );
     }
   }
 
@@ -77,13 +104,15 @@ class StickerService {
 
       if (isVideo) {
         // Para vídeos MP4, WebM, etc., converte com FFmpeg
-        console.log(`Convertendo vídeo ${ext.toUpperCase()} para sticker animado com FFmpeg...`);
+        console.log(
+          `Convertendo vídeo ${ext.toUpperCase()} para sticker animado com FFmpeg...`
+        );
 
         const gifBase64 = await this._convertVideoToSticker(base64Data, ext);
-        
+
         // Processa o GIF gerado como sticker animado
         await this.sendStickerFromBase64(client, chatId, gifBase64);
-        
+
         console.log(`Sticker animado ${ext.toUpperCase()} enviado!`);
         return;
       }
@@ -97,20 +126,20 @@ class StickerService {
     }
   }
 
-  async _animatedStickerErrorHandler(client, chatId, ext = '') {
+  async _animatedStickerErrorHandler(client, chatId, ext = "") {
     try {
       console.log("Animated sticker error handler");
       // Envia mensagem de erro para o usuário
       await client.sendMessage(
         chatId,
-        `❌ **Erro ao processar ${ext ? ext.toUpperCase() : 'mídia'}**\n\n` +
-        "• ✅ **GIFs**: Processamento direto\n" +
-        "• ✅ **Vídeos MP4/WebM/AVI**: Conversão com FFmpeg\n\n" +
-        "💡 **Possíveis causas do erro:**\n" +
-        "• Arquivo muito grande\n" +
-        "• Formato não suportado\n" +
-        "• Vídeo muito longo (limite: 10 segundos)\n\n" +
-        "🔄 **Tente novamente com um arquivo menor ou mais curto!**"
+        `❌ **Erro ao processar ${ext ? ext.toUpperCase() : "mídia"}**\n\n` +
+          "• ✅ **GIFs**: Processamento direto\n" +
+          "• ✅ **Vídeos MP4/WebM/AVI**: Conversão com FFmpeg\n\n" +
+          "💡 **Possíveis causas do erro:**\n" +
+          "• Arquivo muito grande\n" +
+          "• Formato não suportado\n" +
+          "• Vídeo muito longo (limite: 10 segundos)\n\n" +
+          "🔄 **Tente novamente com um arquivo menor ou mais curto!**"
       );
     } catch (fallbackError) {
       console.error("Erro no fallback também:", fallbackError);
