@@ -54,55 +54,6 @@ class StickerService {
     return { quality: 60, effort: 6, alphaQuality: 80 };
   }
 
-  async _createVideoPlaceholder(ext) {
-    console.log(`Criando placeholder para ${ext.toUpperCase()} (FFmpeg indisponível)`);
-    
-    try {
-      const placeholderBuffer = await sharp({
-        create: {
-          width: 512,
-          height: 512,
-          channels: 4,
-          background: { r: 45, g: 55, b: 72, alpha: 1 },
-        },
-      })
-        .composite([
-          {
-            input: Buffer.from(`
-          <svg width="512" height="512">
-            <rect width="512" height="512" fill="#2d3748"/>
-            <text x="50%" y="35%" dominant-baseline="middle" text-anchor="middle" 
-                  fill="white" font-size="32" font-family="Arial, sans-serif">
-              🎬 ${ext.toUpperCase()}
-            </text>
-            <text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" 
-                  fill="#a0aec0" font-size="16" font-family="Arial, sans-serif">
-              Vídeo detectado
-            </text>
-            <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" 
-                  fill="#718096" font-size="12" font-family="Arial, sans-serif">
-              FFmpeg indisponível
-            </text>
-            <text x="50%" y="65%" dominant-baseline="middle" text-anchor="middle" 
-                  fill="#4a5568" font-size="10" font-family="Arial, sans-serif">
-              Envie GIFs para animação
-            </text>
-          </svg>
-        `),
-            top: 0,
-            left: 0,
-          },
-        ])
-        .png()
-        .toBuffer();
-
-      return placeholderBuffer.toString("base64");
-    } catch (error) {
-      console.error("Erro ao criar placeholder:", error);
-      throw new Error("Não foi possível processar o vídeo");
-    }
-  }
-
   async _convertVideoToSticker(base64Data, ext) {
     console.log(`🎬 Iniciando conversão ${ext.toUpperCase()} com FFmpeg...`);
     console.log(`📊 Tamanho do vídeo: ${base64Data.length} chars (${Math.round(base64Data.length * 0.75 / 1024 / 1024 * 100) / 100} MB aprox.)`);
@@ -138,9 +89,10 @@ class StickerService {
               "-ss 0"  // Inicia do segundo 0
             ])
             .outputOptions([
-              "-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,fps=8", // 8 FPS para reduzir frames
+              "-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000@0,fps=8", // Transparência no padding
               "-f gif",
-              "-loop 0" // Loop infinito
+              "-loop 0", // Loop infinito
+              "-transparent_color_flag", "1" // Ativa transparência no GIF
             ])
             .output(outputPath)
             .on("start", (commandLine) => {
@@ -319,10 +271,11 @@ class StickerService {
         
         console.log(`🎨 Configurações: quality=${qualitySettings.quality}, effort=${qualitySettings.effort}, alphaQuality=${qualitySettings.alphaQuality}`);
         
-        // Converte para WebP animado sem redimensionar (manter qualidade)
+        // Converte para WebP animado preservando transparência
         const webpBuffer = await sharp(input, { 
           animated: true,  // CRÍTICO: Force animated processing
-          limitInputPixels: false  // Remove limite de pixels
+          limitInputPixels: false,  // Remove limite de pixels
+          pages: -1  // Processa todas as páginas/frames
         })
           .webp({
             quality: qualitySettings.quality,
@@ -333,6 +286,8 @@ class StickerService {
             animated: true, // FORÇA ANIMAÇÃO
             loop: 0, // Loop infinito
             delay: metadata.delay || [100], // Preserva delay original ou usa 100ms
+            nearLossless: false, // Evita problemas com transparência
+            mixed: true // Permite mixed mode para melhor transparência
           })
           .toBuffer();
           
@@ -344,7 +299,10 @@ class StickerService {
         if (webpBuffer.length < 50000 && metadata.pages > 50) {
           console.log('⚠️ WebP muito pequeno para número de frames, tentando com qualidade maior...');
           
-          const webpBufferHQ = await sharp(input, { animated: true })
+          const webpBufferHQ = await sharp(input, { 
+            animated: true,
+            pages: -1
+          })
             .webp({
               quality: 70,
               lossless: false,
@@ -354,6 +312,8 @@ class StickerService {
               animated: true,
               loop: 0,
               delay: metadata.delay || [100],
+              nearLossless: false,
+              mixed: true
             })
             .toBuffer();
             
@@ -482,14 +442,19 @@ class StickerService {
         // para evitar loop infinito
         const qualitySettings = this._getQualitySettings(metadata.pages);
         
-        const webpB64 = await sharp(input)
+        const webpB64 = await sharp(input, {
+          animated: true,
+          pages: -1
+        })
           .webp({
             quality: qualitySettings.quality,
             lossless: false,
             effort: qualitySettings.effort,
-            smartSubsample: true,
+            smartSubsample: false,
             alphaQuality: qualitySettings.alphaQuality,
             animated: true, // Preserva animação
+            nearLossless: false,
+            mixed: true
           })
           .toBuffer()
           .then(buffer => buffer.toString("base64"));
