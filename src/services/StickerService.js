@@ -134,12 +134,11 @@ class StickerService {
         new Promise((resolve, reject) => {
           ffmpeg(inputPath)
             .inputOptions([
-              "-t 10", // Limita a 10 segundos
+              "-t 5", // Reduz para 5 segundos para menos frames
               "-ss 0"  // Inicia do segundo 0
             ])
             .outputOptions([
-              "-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
-              "-r 10", // 10 FPS para melhor compatibilidade
+              "-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,fps=8", // 8 FPS para reduzir frames
               "-f gif",
               "-loop 0" // Loop infinito
             ])
@@ -305,28 +304,72 @@ class StickerService {
       if (metadata.format === "gif" && metadata.pages > 1) {
         console.log(`✅ GIF animado confirmado com ${metadata.pages} frames`);
         
-        const qualitySettings = this._getQualitySettings(metadata.pages);
-        console.log(`🎨 Configurações de qualidade: quality=${qualitySettings.quality}, effort=${qualitySettings.effort}`);
+        // Ajusta configurações para vídeos com muitos frames
+        let qualitySettings;
+        if (metadata.pages > 100) {
+          qualitySettings = { quality: 40, effort: 3, alphaQuality: 50 };
+          console.log('⚡ Usando configurações otimizadas para vídeo longo (100+ frames)');
+        } else if (metadata.pages > 50) {
+          qualitySettings = { quality: 50, effort: 4, alphaQuality: 60 };
+          console.log('⚡ Usando configurações otimizadas para vídeo médio (50+ frames)');
+        } else {
+          qualitySettings = { quality: 65, effort: 5, alphaQuality: 75 };
+          console.log('⚡ Usando configurações otimizadas para vídeo curto (<50 frames)');
+        }
         
-        const webpBuffer = await sharp(input)
-          .resize(512, 512, {
-            fit: 'inside',
-            withoutEnlargement: false,
-            kernel: sharp.kernel.lanczos3
-          })
+        console.log(`🎨 Configurações: quality=${qualitySettings.quality}, effort=${qualitySettings.effort}, alphaQuality=${qualitySettings.alphaQuality}`);
+        
+        // Converte para WebP animado sem redimensionar (manter qualidade)
+        const webpBuffer = await sharp(input, { 
+          animated: true,  // CRÍTICO: Force animated processing
+          limitInputPixels: false  // Remove limite de pixels
+        })
           .webp({
             quality: qualitySettings.quality,
             lossless: false,
             effort: qualitySettings.effort,
-            smartSubsample: true,
+            smartSubsample: false,  // Desabilita para manter mais frames
             alphaQuality: qualitySettings.alphaQuality,
             animated: true, // FORÇA ANIMAÇÃO
             loop: 0, // Loop infinito
+            delay: metadata.delay || [100], // Preserva delay original ou usa 100ms
           })
           .toBuffer();
           
         const webpB64 = webpBuffer.toString("base64");
-        console.log(`📦 WebP animado gerado: ${webpBuffer.length} bytes`);
+        console.log(`📦 WebP animado gerado: ${webpBuffer.length} bytes (${Math.round(webpBuffer.length / 1024)} KB)`);
+        console.log(`📊 Proporção de compressão: ${Math.round((webpBuffer.length / input.length) * 100)}%`);
+        
+        // Verifica se o arquivo não ficou muito pequeno (indicativo de perda de animação)
+        if (webpBuffer.length < 50000 && metadata.pages > 50) {
+          console.log('⚠️ WebP muito pequeno para número de frames, tentando com qualidade maior...');
+          
+          const webpBufferHQ = await sharp(input, { animated: true })
+            .webp({
+              quality: 70,
+              lossless: false,
+              effort: 2,
+              smartSubsample: false,
+              alphaQuality: 80,
+              animated: true,
+              loop: 0,
+              delay: metadata.delay || [100],
+            })
+            .toBuffer();
+            
+          const webpB64HQ = webpBufferHQ.toString("base64");
+          console.log(`📦 WebP HQ gerado: ${webpBufferHQ.length} bytes (${Math.round(webpBufferHQ.length / 1024)} KB)`);
+          
+          const media = new MessageMedia("image/webp", webpB64HQ);
+          await client.sendMessage(chatId, media, {
+            sendMediaAsSticker: true,
+            stickerAuthor: "WPP Bot",
+            stickerName: "Vídeo Animado HQ",
+          });
+          
+          console.log("🎉 Sticker animado de vídeo (HQ) enviado com sucesso!");
+          return;
+        }
         
         const media = new MessageMedia("image/webp", webpB64);
         await client.sendMessage(chatId, media, {
