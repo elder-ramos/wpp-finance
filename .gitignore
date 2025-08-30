@@ -3,3 +3,4 @@ package-lock.json
 .wwebjs_*
 .vscode/*
 .env
+deploy.sh
