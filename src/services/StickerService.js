@@ -11,21 +11,37 @@ class StickerService {
 
   async _checkFFmpegAvailability() {
     if (this.ffmpegAvailable !== null) {
+      console.log(`🔄 Cache FFmpeg: ${this.ffmpegAvailable ? 'Disponível' : 'Indisponível'}`);
       return this.ffmpegAvailable;
     }
 
+    console.log('🔍 Verificando disponibilidade do FFmpeg...');
+    
     try {
-      await new Promise((resolve, reject) => {
-        ffmpeg()
-          .format("mp4")
-          .on("start", () => resolve())
-          .on("error", (err) => reject(err));
-      });
+      // Testa FFmpeg com timeout de 5 segundos
+      await Promise.race([
+        new Promise((resolve, reject) => {
+          ffmpeg()
+            .on('start', () => {
+              console.log('✅ FFmpeg responde ao comando');
+              resolve();
+            })
+            .on('error', (err) => {
+              console.log('❌ FFmpeg erro:', err.code);
+              reject(err);
+            })
+            .format('mp4');
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout FFmpeg')), 5000)
+        )
+      ]);
+      
       this.ffmpegAvailable = true;
-      console.log("✅ FFmpeg disponível");
+      console.log('✅ FFmpeg está disponível e funcionando');
     } catch (error) {
       this.ffmpegAvailable = false;
-      console.log("❌ FFmpeg não disponível:", error.message);
+      console.log(`❌ FFmpeg não disponível: ${error.message || error.code || 'Erro desconhecido'}`);
     }
 
     return this.ffmpegAvailable;
@@ -87,98 +103,187 @@ class StickerService {
   }
 
   async _convertVideoToSticker(base64Data, ext) {
-    console.log(`Processando vídeo ${ext.toUpperCase()} com FFmpeg...`);
+    console.log(`🎬 Iniciando conversão ${ext.toUpperCase()} com FFmpeg...`);
+    console.log(`📊 Tamanho do vídeo: ${base64Data.length} chars (${Math.round(base64Data.length * 0.75 / 1024 / 1024 * 100) / 100} MB aprox.)`);
 
     const tempDir = path.join(__dirname, "../../temp");
     if (!fs.existsSync(tempDir)) {
+      console.log('📁 Criando diretório temp...');
       fs.mkdirSync(tempDir, { recursive: true });
     }
 
-    const inputPath = path.join(tempDir, `input_${Date.now()}.${ext}`);
-    const outputPath = path.join(tempDir, `output_${Date.now()}.gif`);
+    const timestamp = Date.now();
+    const inputPath = path.join(tempDir, `input_${timestamp}.${ext}`);
+    const outputPath = path.join(tempDir, `output_${timestamp}.gif`);
+    
+    console.log(`📂 Arquivos temporários:`);
+    console.log(`   Input: ${inputPath}`);
+    console.log(`   Output: ${outputPath}`);
 
     try {
       // Salva o vídeo base64 como arquivo temporário
+      console.log('💾 Salvando vídeo como arquivo temporário...');
       const videoBuffer = Buffer.from(base64Data, "base64");
       fs.writeFileSync(inputPath, videoBuffer);
+      console.log(`✅ Arquivo salvo: ${fs.statSync(inputPath).size} bytes`);
 
-      // Converte vídeo para GIF usando FFmpeg
-      await new Promise((resolve, reject) => {
-        ffmpeg(inputPath)
-          .inputOptions(["-t 10"]) // Limita a 10 segundos
-          .outputOptions([
-            "-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
-            "-r 15", // 15 FPS
-            "-f gif",
-          ])
-          .output(outputPath)
-          .on("end", () => {
-            console.log("Conversão FFmpeg concluída");
-            resolve();
-          })
-          .on("error", (err) => {
-            console.error("Erro FFmpeg:", err);
-            reject(err);
-          })
-          .run();
-      });
+      // Converte vídeo para GIF usando FFmpeg com timeout
+      console.log('🔄 Iniciando conversão FFmpeg...');
+      await Promise.race([
+        new Promise((resolve, reject) => {
+          ffmpeg(inputPath)
+            .inputOptions(["-t 10"]) // Limita a 10 segundos
+            .outputOptions([
+              "-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
+              "-r 15", // 15 FPS
+              "-f gif",
+            ])
+            .output(outputPath)
+            .on("start", (commandLine) => {
+              console.log('🚀 FFmpeg iniciado:', commandLine);
+            })
+            .on("progress", (progress) => {
+              console.log(`⏳ Progresso: ${progress.percent ? Math.round(progress.percent) : '?'}%`);
+            })
+            .on("end", () => {
+              console.log('✅ Conversão FFmpeg concluída');
+              resolve();
+            })
+            .on("error", (err) => {
+              console.error('❌ Erro FFmpeg durante conversão:', err.message);
+              reject(err);
+            })
+            .run();
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout na conversão FFmpeg (60s)')), 60000)
+        )
+      ]);
+
+      // Verifica se o arquivo foi criado
+      if (!fs.existsSync(outputPath)) {
+        throw new Error('Arquivo GIF não foi gerado pelo FFmpeg');
+      }
 
       // Lê o GIF gerado e converte para base64
+      console.log('📖 Lendo GIF gerado...');
       const gifBuffer = fs.readFileSync(outputPath);
       const gifBase64 = gifBuffer.toString("base64");
+      
+      console.log(`📊 GIF gerado: ${gifBuffer.length} bytes (${Math.round(gifBuffer.length / 1024 / 1024 * 100) / 100} MB)`);
+      console.log(`📝 Base64: ${gifBase64.length} chars`);
 
       // Limpa arquivos temporários
-      if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+      console.log('🧹 Limpando arquivos temporários...');
+      if (fs.existsSync(inputPath)) {
+        fs.unlinkSync(inputPath);
+        console.log('🗑️ Input removido');
+      }
+      if (fs.existsSync(outputPath)) {
+        fs.unlinkSync(outputPath);
+        console.log('🗑️ Output removido');
+      }
 
+      console.log('🎉 Conversão concluída com sucesso!');
       return gifBase64;
+
     } catch (error) {
-      console.error("Erro ao converter vídeo com FFmpeg:", error);
+      console.error(`💥 Erro na conversão ${ext.toUpperCase()}:`, error.message);
+      console.error('📊 Detalhes do erro:', error);
 
       // Limpa arquivos temporários em caso de erro
-      if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+      console.log('🧹 Limpando arquivos temporários (erro)...');
+      try {
+        if (fs.existsSync(inputPath)) {
+          fs.unlinkSync(inputPath);
+          console.log('🗑️ Input removido (erro)');
+        }
+        if (fs.existsSync(outputPath)) {
+          fs.unlinkSync(outputPath);
+          console.log('🗑️ Output removido (erro)');
+        }
+      } catch (cleanupError) {
+        console.error('⚠️ Erro na limpeza:', cleanupError.message);
+      }
 
-      throw new Error(
-        `Não foi possível processar o vídeo ${ext.toUpperCase()}`
-      );
+      throw new Error(`Falha na conversão ${ext.toUpperCase()}: ${error.message}`);
     }
   }
 
   async sendAnimatedSticker(client, chatId, base64Data, ext) {
+    console.log(`🎬 Iniciando processamento de ${ext.toUpperCase()}: ${base64Data.length} chars`);
+    
     try {
-      console.log(`Processando ${ext} animado...`);
-
       const isVideo = !["gif"].includes(ext);
+      console.log(`📝 Tipo de mídia: ${isVideo ? 'Vídeo' : 'GIF'}`);
 
       if (isVideo) {
-        // Para vídeos MP4, WebM, etc., verifica FFmpeg primeiro
-        const ffmpegAvailable = await this._checkFFmpegAvailability();
+        console.log(`🔧 Processando vídeo ${ext.toUpperCase()}...`);
+        
+        // Verifica FFmpeg com timeout
+        let ffmpegAvailable = false;
+        try {
+          console.log('⏳ Verificando FFmpeg...');
+          ffmpegAvailable = await Promise.race([
+            this._checkFFmpegAvailability(),
+            new Promise((resolve) => setTimeout(() => resolve(false), 10000))
+          ]);
+          console.log(`🎯 Resultado FFmpeg: ${ffmpegAvailable}`);
+        } catch (checkError) {
+          console.error('❌ Erro na verificação FFmpeg:', checkError.message);
+          ffmpegAvailable = false;
+        }
         
         if (!ffmpegAvailable) {
-          console.log(`FFmpeg não disponível para ${ext.toUpperCase()}...`);
+          console.log(`⚠️ FFmpeg indisponível para ${ext.toUpperCase()}, enviando mensagem de aviso...`);
           
-          await client.sendMessage(chatId, "⚠️ FFmpeg não está disponível no servidor. Não é possível processar vídeos para stickers animados.\n\nPor favor, envie GIFs animados para stickers animados ou use imagens estáticas.\n\nEm resumo, Elder fez merda");
+          await client.sendMessage(
+            chatId, 
+            `⚠️ **FFmpeg não disponível no servidor**\n\n` +
+            `O vídeo ${ext.toUpperCase()} não pode ser convertido para sticker animado.\n\n` +
+            `💡 **Alternativas:**\n` +
+            `• Envie **GIFs animados** (funcionam perfeitamente)\n` +
+            `• Use **imagens estáticas** para stickers normais\n\n` +
+            `🔧 **Status técnico:** FFmpeg não instalado ou inacessível`
+          );
+          
+          console.log('✅ Mensagem de aviso enviada, processamento finalizado');
           return;
         }
 
-        // Se FFmpeg está disponível, converte o vídeo
-        console.log(`Convertendo vídeo ${ext.toUpperCase()} para sticker animado com FFmpeg...`);
-        const gifBase64 = await this._convertVideoToSticker(base64Data, ext);
-        
-        // Processa o GIF gerado como sticker animado
-        await this.sendStickerFromBase64(client, chatId, gifBase64);
-        
-        console.log(`Sticker animado ${ext.toUpperCase()} enviado!`);
-        return;
+        // Se FFmpeg está disponível, tenta converter
+        console.log(`🚀 FFmpeg disponível, iniciando conversão ${ext.toUpperCase()} → GIF...`);
+        try {
+          const gifBase64 = await this._convertVideoToSticker(base64Data, ext);
+          console.log(`✅ Conversão concluída, GIF gerado: ${gifBase64.length} chars`);
+          
+          // Processa o GIF gerado
+          console.log('📦 Enviando sticker a partir do GIF gerado...');
+          await this.sendStickerFromBase64(client, chatId, gifBase64);
+          
+          console.log(`🎉 Sticker animado ${ext.toUpperCase()} enviado com sucesso!`);
+          return;
+        } catch (conversionError) {
+          console.error(`❌ Erro na conversão ${ext.toUpperCase()}:`, conversionError.message);
+          throw conversionError;
+        }
       }
 
       // Para GIFs, processa diretamente 
-      console.log("Processando GIF animado diretamente...");
+      console.log("🎞️ Processando GIF animado diretamente...");
       await this.sendStickerFromBase64(client, chatId, base64Data);
+      console.log("✅ GIF animado processado com sucesso!");
+      
     } catch (error) {
-      console.error(`Erro ${ext}:`, error);
-      await this._animatedStickerErrorHandler(client, chatId, ext);
+      console.error(`💥 Erro crítico no processamento ${ext}:`, error.message);
+      console.error('📊 Stack trace:', error.stack);
+      
+      try {
+        await this._animatedStickerErrorHandler(client, chatId, ext);
+        console.log('📨 Mensagem de erro enviada ao usuário');
+      } catch (handlerError) {
+        console.error('🚨 Erro ao enviar mensagem de erro:', handlerError.message);
+      }
     }
   }
 
@@ -323,17 +428,25 @@ class StickerService {
   }
 
   async processMedia(client, media, chatId) {
+    console.log('🎯 === INICIANDO PROCESSAMENTO DE MÍDIA ===');
+    
     try {
-      if (
-        !media ||
-        (!media.mimetype.startsWith("image/") &&
-          !media.mimetype.startsWith("video/"))
-      ) {
-        console.log("Mídia não suportada");
+      if (!media) {
+        console.log('❌ Nenhuma mídia fornecida');
+        await client.sendMessage(chatId, "❌ Nenhuma mídia foi enviada. Por favor, envie uma imagem, GIF ou vídeo.");
+        return;
+      }
+
+      console.log(`📋 Informações da mídia:`);
+      console.log(`   Type: ${media.mimetype || 'desconhecido'}`);
+      console.log(`   Size: ${media.data ? media.data.length : 0} chars`);
+      console.log(`   Data exists: ${!!media.data}`);
+
+      if (!media.mimetype || (!media.mimetype.startsWith("image/") && !media.mimetype.startsWith("video/"))) {
+        console.log('⚠️ Formato de mídia não suportado');
 
         const ffmpegAvailable = await this._checkFFmpegAvailability();
 
-        // Envia mensagem explicativa para o usuário
         await client.sendMessage(
           chatId,
           "📎 *Formato não suportado*\n\nPor favor, envie:\n• 🖼️ **Imagens** (JPG, PNG)\n• 🎬 **Vídeos** (MP4, WebM, AVI, MOV)\n• 🎞️ **GIFs animados**\n\n" +
@@ -342,30 +455,46 @@ class StickerService {
         return;
       }
 
-      console.log(`Mídia: ${media.mimetype}, ${media.data.length} chars`);
+      console.log(`📊 Mídia válida: ${media.mimetype}, ${media.data.length} chars`);
 
-      if (
-        media.mimetype === "image/gif" ||
-        media.mimetype.startsWith("video/")
-      ) {
+      // Determina se é animado (GIF ou vídeo)
+      const isAnimated = media.mimetype === "image/gif" || media.mimetype.startsWith("video/");
+      console.log(`🎬 Mídia animada: ${isAnimated}`);
+
+      if (isAnimated) {
         const ext = this._getMediaExtension(media.mimetype);
-        console.log(`${ext.toUpperCase()} detectado...`);
+        console.log(`🎯 Extensão detectada: ${ext.toUpperCase()}`);
+        console.log(`🚀 Chamando sendAnimatedSticker...`);
+        
         await this.sendAnimatedSticker(client, chatId, media.data, ext);
+        console.log(`✅ sendAnimatedSticker concluído para ${ext.toUpperCase()}`);
       } else {
-        console.log("Imagem estática...");
+        console.log("🖼️ Processando imagem estática...");
         await this.sendStickerFromBase64(client, chatId, media.data);
+        console.log("✅ Imagem estática processada");
       }
+
+      console.log('🎉 === PROCESSAMENTO CONCLUÍDO COM SUCESSO ===');
+      
     } catch (error) {
-      console.error("Erro processMedia:", error);
+      console.error("💥 === ERRO CRÍTICO NO PROCESSAMENTO ===");
+      console.error("📋 Detalhes:", error.message);
+      console.error("📊 Stack:", error.stack);
+      console.error("🔍 Mídia info:", {
+        mimetype: media?.mimetype,
+        dataLength: media?.data?.length,
+        hasData: !!media?.data
+      });
 
       // Envia mensagem de erro geral
       try {
         await client.sendMessage(
           chatId,
-          "❌ *Erro interno*\n\nOcorreu um erro inesperado ao processar sua mídia. Tente novamente ou use um formato diferente."
+          "❌ *Erro interno no processamento*\n\nOcorreu um erro inesperado ao processar sua mídia.\n\n🔄 **Tente:**\n• Enviar um arquivo menor\n• Usar formato diferente (GIF/JPG/PNG)\n• Tentar novamente em alguns segundos"
         );
+        console.log('📨 Mensagem de erro geral enviada');
       } catch (msgError) {
-        console.error("Erro ao enviar mensagem de erro geral:", msgError);
+        console.error("🚨 Erro ao enviar mensagem de erro geral:", msgError.message);
       }
     }
   }
