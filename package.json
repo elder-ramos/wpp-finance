@@ -1,29 +1,19 @@
 {
-  "name": "wpp-finance",
+  "name": "wpp-sticker-bot",
   "version": "0.0.1",
-  "description": "A bot to control finances through WhatsApp",
+  "description": "A bot to create stickers through WhatsApp for WhatsApp",
   "main": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/index.js",
-    "rag": "node rag/rag.js"
+    "start": "node src/index.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "chromadb": "^2.2.0",
-    "dotenv": "^16.4.7",
-    "ollama": "^0.5.14",
-    "pg": "^8.14.1",
-    "pg-hstore": "^2.3.4",
+    "chromadb": "^2.4.6",
+    "dotenv": "^16.6.1",
     "qrcode-terminal": "^0.12.0",
-    "sequelize": "^6.37.7",
-    "sql-migrations": "^1.0.7",
-    "whatsapp-web.js": "^1.27.0",
-    "zod": "^3.24.2",
-    "zod-to-json-schema": "^3.24.5"
-  },
-  "devDependencies": {
-    "sequelize-cli": "^6.6.2"
+    "sharp": "^0.34.3",
+    "whatsapp-web.js": "github:BenyFilho/whatsapp-web.js#fix_event_ready"
   }
 }
