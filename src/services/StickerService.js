@@ -3,6 +3,7 @@ const sharp = require("sharp");
 const ffmpeg = require("fluent-ffmpeg");
 const fs = require("fs");
 const path = require("path");
+const { spawn } = require("child_process");
 
 class StickerService {
   constructor() {
@@ -18,24 +19,33 @@ class StickerService {
     console.log('🔍 Verificando disponibilidade do FFmpeg...');
     
     try {
-      // Testa FFmpeg com timeout de 5 segundos
-      await Promise.race([
-        new Promise((resolve, reject) => {
-          ffmpeg()
-            .on('start', () => {
-              console.log('✅ FFmpeg responde ao comando');
-              resolve();
-            })
-            .on('error', (err) => {
-              console.log('❌ FFmpeg erro:', err.code);
-              reject(err);
-            })
-            .format('mp4');
-        }),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout FFmpeg')), 5000)
-        )
-      ]);
+      // Testa FFmpeg com comando simples e rápido
+      await new Promise((resolve, reject) => {
+        const ffmpegProcess = spawn('ffmpeg', ['-version'], { 
+          stdio: 'pipe',
+          timeout: 3000 
+        });
+        
+        ffmpegProcess.on('close', (code) => {
+          if (code === 0) {
+            console.log('✅ FFmpeg responde ao comando -version');
+            resolve();
+          } else {
+            reject(new Error(`FFmpeg exit code: ${code}`));
+          }
+        });
+        
+        ffmpegProcess.on('error', (err) => {
+          console.log('❌ FFmpeg erro spawn:', err.code);
+          reject(err);
+        });
+        
+        // Timeout de segurança
+        setTimeout(() => {
+          ffmpegProcess.kill();
+          reject(new Error('Timeout FFmpeg (3s)'));
+        }, 3000);
+      });
       
       this.ffmpegAvailable = true;
       console.log('✅ FFmpeg está disponível e funcionando');
@@ -220,13 +230,13 @@ class StickerService {
       if (isVideo) {
         console.log(`🔧 Processando vídeo ${ext.toUpperCase()}...`);
         
-        // Verifica FFmpeg com timeout
+        // Verifica FFmpeg com timeout reduzido
         let ffmpegAvailable = false;
         try {
           console.log('⏳ Verificando FFmpeg...');
           ffmpegAvailable = await Promise.race([
             this._checkFFmpegAvailability(),
-            new Promise((resolve) => setTimeout(() => resolve(false), 10000))
+            new Promise((resolve) => setTimeout(() => resolve(false), 5000))
           ]);
           console.log(`🎯 Resultado FFmpeg: ${ffmpegAvailable}`);
         } catch (checkError) {
