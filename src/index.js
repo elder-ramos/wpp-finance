@@ -2,6 +2,131 @@ const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
 const sharp = require("sharp");
 
+async function sendAnimatedSticker(client, chatId, base64Data, ext) {
+  try {
+    console.log(`Processando ${ext} animado com Sharp...`);
+    
+    const input = Buffer.from(base64Data, 'base64');
+    const metadata = await sharp(input).metadata();
+    
+    console.log(`Mídia animada: ${metadata.width}x${metadata.height}, páginas: ${metadata.pages || 1}`);
+    
+    if (ext === 'gif' && metadata.pages > 1) {
+      console.log(`GIF com ${metadata.pages} páginas - convertendo para WebP animado...`);
+      
+      let quality = 60;
+      let effort = 6;
+      let alphaQuality = 80;
+      
+      if (metadata.pages > 100) {
+        quality = 30;
+        effort = 4;
+        alphaQuality = 40;
+      } else if (metadata.pages > 50) {
+        quality = 45;
+        effort = 5;
+        alphaQuality = 50;
+      }
+      
+      // Converte para WebP animado com configurações ultra-otimizadas
+      const optimizedWebp = await sharp(input, { 
+        animated: true,
+        limitInputPixels: false
+      })
+        .resize(512, 512, {
+          fit: 'inside',
+          withoutEnlargement: false,
+          kernel: sharp.kernel.nearest
+        })
+        .webp({
+          quality: quality,
+          effort: effort,
+          lossless: false,
+          nearLossless: false,
+          smartSubsample: true,
+          alphaQuality: alphaQuality,
+          reductionEffort: 6,
+          mixed: false
+        })
+        .toBuffer();
+      
+      console.log(`WebP animado gerado: ${optimizedWebp.length} bytes com ${metadata.pages} frames preservados`);
+      
+      let finalWebp = optimizedWebp;
+      if (optimizedWebp.length > 800000 && metadata.pages > 50) { // 800KB
+        console.log('Arquivo ainda muito grande, aplicando compressão extrema...');
+        
+        finalWebp = await sharp(input, { 
+          animated: true,
+          limitInputPixels: false
+        })
+          .resize(256, 256, {
+            fit: 'inside',
+            withoutEnlargement: false,
+            kernel: sharp.kernel.nearest
+          })
+          .webp({
+            quality: 10,
+            effort: 2,
+            lossless: false,
+            nearLossless: false,
+            smartSubsample: false,
+            alphaQuality: 20,
+            reductionEffort: 6
+          })
+          .toBuffer();
+          
+        console.log(`Compressão extrema aplicada: ${finalWebp.length} bytes`);
+      }
+      
+      const optimizedBase64 = finalWebp.toString('base64');
+      const media = new MessageMedia('image/webp', optimizedBase64);
+      
+      await client.sendMessage(chatId, media, {
+        sendMediaAsSticker: true,
+        stickerAuthor: 'WPP Finance Bot',
+        stickerName: `Sticker Completo (${metadata.pages}f)`
+      });
+      
+      console.log(`Sticker WebP animado enviado com ${metadata.pages} frames completos!`);
+    } else {
+      const webpBuffer = await sharp(input)
+        .resize(512, 512, {
+          fit: 'inside',
+          withoutEnlargement: false,
+          kernel: sharp.kernel.lanczos3,
+          background: { r: 0, g: 0, b: 0, alpha: 0 }
+        })
+        .webp({
+          quality: 90,
+          effort: 6,
+          alphaQuality: 95
+        })
+        .toBuffer();
+      
+      const webpBase64 = webpBuffer.toString('base64');
+      const media = new MessageMedia('image/webp', webpBase64);
+      
+      await client.sendMessage(chatId, media, {
+        sendMediaAsSticker: true,
+        stickerAuthor: 'WPP Finance Bot',
+        stickerName: 'Sticker Animado'
+      });
+      
+      console.log('Sticker convertido enviado com sucesso!');
+    }
+  } catch (error) {
+    console.error('Erro ao processar sticker animado:', error);
+    
+    try {
+      console.log('Tentando fallback para imagem estática...');
+      await sendStickerFromBase64(client, chatId, base64Data);
+    } catch (fallbackError) {
+      console.error('Erro no fallback:', fallbackError);
+    }
+  }
+}
+
 // Função para enviar sticker com qualidade máxima otimizada
 async function base64ToStickerWebp(b64) {
   const input = Buffer.from(b64, 'base64');
@@ -69,7 +194,14 @@ async function sendStickerFromBase64(client, chatId, base64Data) {
     
     console.log(`Processando imagem: ${metadata.width}x${metadata.height}, formato: ${metadata.format}`);
     
-    // Aplica pré-processamento baseado no tipo de imagem
+    // Verifica se é um GIF animado
+    if (metadata.format === 'gif' && metadata.pages > 1) {
+      console.log('Detectado GIF animado, convertendo para WebP animado...');
+      await sendAnimatedSticker(client, chatId, base64Data, 'gif');
+      return;
+    }
+    
+    // Para imagens estáticas, aplica pré-processamento baseado no tipo
     let optimizedBase64;
     
     if (metadata.format === 'jpeg' || metadata.format === 'jpg') {
@@ -82,6 +214,12 @@ async function sendStickerFromBase64(client, chatId, base64Data) {
       optimizedBase64 = enhanced.toString('base64');
     } else if (metadata.format === 'png') {
       // Para PNG, preserva transparência e otimiza
+      const enhanced = await sharp(input)
+        .png({ compressionLevel: 0, quality: 100 })
+        .toBuffer();
+      optimizedBase64 = enhanced.toString('base64');
+    } else if (metadata.format === 'gif') {
+      // Para GIF estático, converte para PNG
       const enhanced = await sharp(input)
         .png({ compressionLevel: 0, quality: 100 })
         .toBuffer();
@@ -126,21 +264,38 @@ client.on("ready", async () => {
 });
 
 client.on("message", async (msg) => {
-  // Verifica se a mensagem tem mídia e se é uma imagem
+  // Verifica se a mensagem tem mídia
   if (msg.hasMedia) {
     try {
-      console.log("Baixando mídia de alta qualidade...");
+      console.log("Baixando mídia...");
       
       // Baixa a mídia usando o método oficial (mantém qualidade original)
       const media = await msg.downloadMedia();
       
-      if (media && media.mimetype.startsWith('image/')) {
+      if (media && (media.mimetype.startsWith('image/') || media.mimetype.startsWith('video/'))) {
         console.log(`Mídia recebida: ${media.mimetype}, tamanho: ${media.data.length} chars`);
         
-        // Usa o método otimizado para processar a imagem
+        // Detecta diferentes tipos de mídia
+        if (media.mimetype === 'image/gif') {
+          console.log('GIF detectado, processando como animado...');
+          await sendAnimatedSticker(client, msg.from, media.data, 'gif');
+          return;
+        } else if (media.mimetype.startsWith('video/')) {
+          console.log('Vídeo detectado, será convertido para sticker');
+          // Para vídeos, tenta processar como animação
+          const ext = media.mimetype.includes('mp4') ? 'mp4' : 
+                     media.mimetype.includes('gif') ? 'gif' : 'video';
+          await sendAnimatedSticker(client, msg.from, media.data, ext);
+          return;
+        } else {
+          console.log('Imagem estática detectada');
+        }
+        
+        // Usa o método otimizado para processar a imagem/GIF
         await sendStickerFromBase64(client, msg.from, media.data);
       } else {
-        console.log("Mídia não é uma imagem suportada");
+        console.log("Mídia não é suportada. Tipos aceitos: imagens (PNG, JPEG, GIF) e vídeos");
+        console.log(`Tipo recebido: ${media ? media.mimetype : 'desconhecido'}`);
       }
     } catch (error) {
       console.error("Erro ao processar mídia:", error);
