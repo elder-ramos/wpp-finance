@@ -3,7 +3,7 @@ const sharp = require("sharp");
 const ffmpeg = require("fluent-ffmpeg");
 const fs = require("fs");
 const path = require("path");
-const { spawn } = require("child_process");
+const { spawn, exec } = require("child_process");
 
 class StickerService {
   constructor() {
@@ -19,32 +19,23 @@ class StickerService {
     console.log('🔍 Verificando disponibilidade do FFmpeg...');
     
     try {
-      // Testa FFmpeg com comando simples e rápido
+      // Teste mais simples e direto
       await new Promise((resolve, reject) => {
-        const ffmpegProcess = spawn('ffmpeg', ['-version'], { 
-          stdio: 'pipe',
-          timeout: 3000 
-        });
+        const { exec } = require('child_process');
+        const timeoutId = setTimeout(() => {
+          reject(new Error('Timeout FFmpeg (2s)'));
+        }, 2000);
         
-        ffmpegProcess.on('close', (code) => {
-          if (code === 0) {
+        exec('ffmpeg -version', (error, stdout, stderr) => {
+          clearTimeout(timeoutId);
+          if (error) {
+            console.log('❌ FFmpeg erro exec:', error.code);
+            reject(error);
+          } else {
             console.log('✅ FFmpeg responde ao comando -version');
             resolve();
-          } else {
-            reject(new Error(`FFmpeg exit code: ${code}`));
           }
         });
-        
-        ffmpegProcess.on('error', (err) => {
-          console.log('❌ FFmpeg erro spawn:', err.code);
-          reject(err);
-        });
-        
-        // Timeout de segurança
-        setTimeout(() => {
-          ffmpegProcess.kill();
-          reject(new Error('Timeout FFmpeg (3s)'));
-        }, 3000);
       });
       
       this.ffmpegAvailable = true;
@@ -142,11 +133,15 @@ class StickerService {
       await Promise.race([
         new Promise((resolve, reject) => {
           ffmpeg(inputPath)
-            .inputOptions(["-t 10"]) // Limita a 10 segundos
+            .inputOptions([
+              "-t 10", // Limita a 10 segundos
+              "-ss 0"  // Inicia do segundo 0
+            ])
             .outputOptions([
               "-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
-              "-r 15", // 15 FPS
+              "-r 10", // 10 FPS para melhor compatibilidade
               "-f gif",
+              "-loop 0" // Loop infinito
             ])
             .output(outputPath)
             .on("start", (commandLine) => {
@@ -267,9 +262,9 @@ class StickerService {
           const gifBase64 = await this._convertVideoToSticker(base64Data, ext);
           console.log(`✅ Conversão concluída, GIF gerado: ${gifBase64.length} chars`);
           
-          // Processa o GIF gerado
-          console.log('📦 Enviando sticker a partir do GIF gerado...');
-          await this.sendStickerFromBase64(client, chatId, gifBase64);
+          // Processa o GIF gerado como ANIMADO
+          console.log('📦 Enviando sticker ANIMADO a partir do GIF gerado...');
+          await this._sendAnimatedGifSticker(client, chatId, gifBase64);
           
           console.log(`🎉 Sticker animado ${ext.toUpperCase()} enviado com sucesso!`);
           return;
@@ -294,6 +289,61 @@ class StickerService {
       } catch (handlerError) {
         console.error('🚨 Erro ao enviar mensagem de erro:', handlerError.message);
       }
+    }
+  }
+
+  async _sendAnimatedGifSticker(client, chatId, gifBase64) {
+    console.log('🎞️ Processando GIF convertido como sticker animado...');
+    
+    try {
+      const input = Buffer.from(gifBase64, "base64");
+      const metadata = await sharp(input).metadata();
+      
+      console.log(`📊 GIF metadata: ${metadata.width}x${metadata.height}, formato: ${metadata.format}, páginas: ${metadata.pages}`);
+      
+      // Força o processamento como GIF animado
+      if (metadata.format === "gif" && metadata.pages > 1) {
+        console.log(`✅ GIF animado confirmado com ${metadata.pages} frames`);
+        
+        const qualitySettings = this._getQualitySettings(metadata.pages);
+        console.log(`🎨 Configurações de qualidade: quality=${qualitySettings.quality}, effort=${qualitySettings.effort}`);
+        
+        const webpBuffer = await sharp(input)
+          .resize(512, 512, {
+            fit: 'inside',
+            withoutEnlargement: false,
+            kernel: sharp.kernel.lanczos3
+          })
+          .webp({
+            quality: qualitySettings.quality,
+            lossless: false,
+            effort: qualitySettings.effort,
+            smartSubsample: true,
+            alphaQuality: qualitySettings.alphaQuality,
+            animated: true, // FORÇA ANIMAÇÃO
+            loop: 0, // Loop infinito
+          })
+          .toBuffer();
+          
+        const webpB64 = webpBuffer.toString("base64");
+        console.log(`📦 WebP animado gerado: ${webpBuffer.length} bytes`);
+        
+        const media = new MessageMedia("image/webp", webpB64);
+        await client.sendMessage(chatId, media, {
+          sendMediaAsSticker: true,
+          stickerAuthor: "WPP Bot",
+          stickerName: "Vídeo Animado",
+        });
+        
+        console.log("🎉 Sticker animado de vídeo enviado com sucesso!");
+      } else {
+        console.log('⚠️ GIF não possui múltiplos frames, enviando como estático');
+        await this.sendStickerFromBase64(client, chatId, gifBase64);
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro ao processar GIF convertido:', error.message);
+      throw error;
     }
   }
 
