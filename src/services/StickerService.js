@@ -64,11 +64,6 @@ class StickerService {
 
   async _convertVideoToSticker(base64Data, ext) {
     console.log(`🎬 Iniciando conversão ${ext.toUpperCase()} com FFmpeg...`);
-    console.log(
-      `📊 Tamanho do vídeo: ${base64Data.length} chars (${
-        Math.round(((base64Data.length * 0.75) / 1024 / 1024) * 100) / 100
-      } MB aprox.)`
-    );
 
     const tempDir = path.join(__dirname, "../../temp");
     if (!fs.existsSync(tempDir)) {
@@ -93,17 +88,18 @@ class StickerService {
 
       // Converte vídeo para GIF usando FFmpeg com timeout
       console.log("🔄 Iniciando conversão FFmpeg...");
+
       await Promise.race([
         new Promise((resolve, reject) => {
           ffmpeg(inputPath)
             .inputOptions([
-              "-t 5", // Reduz para 5 segundos para menos frames
-              "-ss 0", // Inicia do segundo 0
+              "-t 5", // limita a 5 segundos
+              "-ss 0", // começa do início
             ])
             .outputOptions([
-              "-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,fps=8", // 8 FPS, fundo transparente
+              "-vf fps=12,scale=512:512:force_original_aspect_ratio=increase,crop=512:512", // 12 FPS, crop para quadrado
               "-f gif",
-              "-loop 0", // Loop infinito
+              "-loop 0", // loop infinito
             ])
             .output(outputPath)
             .on("start", (commandLine) => {
@@ -291,7 +287,9 @@ class StickerService {
 
     const inputPath = `./temp_input_${Date.now()}.gif`;
     const outputPath = `./temp_sticker_${Date.now()}.webp`;
-    const filterComplex = "[0:v] fps=12,scale=512:512:flags=lanczos:force_original_aspect_ratio=increase,crop=512:512";
+    
+    // Filtro único e simplificado para todas as conversões
+    const baseFilter = "[0:v] fps=12,scale=512:512:force_original_aspect_ratio=increase,crop=512:512,format=rgba";
 
     try {
       // Salva o GIF/MP4 temporário
@@ -303,12 +301,7 @@ class StickerService {
       const testQuality = 60;
       console.log(`🧮 Testando qualidade ${testQuality}% para estimativa...`);
 
-      const testCmd = `ffmpeg -y -i "${inputPath}" \
--vcodec libwebp \
--filter_complex "[0:v] fps=12,crop=min(iw\\,ih):min(iw\\,ih),scale=512:512:flags=lanczos,format=rgba" \
--loop 0 -q:v ${Math.round(
-        testQuality * 0.8
-      )} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
+      const testCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${baseFilter}" -loop 0 -q:v ${Math.round(testQuality * 0.8)} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
 
       await new Promise((resolve, reject) => {
         exec(testCmd, (err, stdout, stderr) => {
@@ -326,9 +319,7 @@ class StickerService {
 
       const testBuffer = fs.readFileSync(outputPath);
       const testSizeKB = Math.round(testBuffer.length / 1024);
-      console.log(
-        `📊 Tamanho teste (qualidade ${testQuality}%): ${testSizeKB} KB`
-      );
+      console.log(`📊 Tamanho teste (qualidade ${testQuality}%): ${testSizeKB} KB`);
 
       // Remove arquivo de teste
       fs.unlinkSync(outputPath);
@@ -344,25 +335,13 @@ class StickerService {
       } else {
         // Calcula redução necessária (relação não-linear entre qualidade e tamanho)
         const reductionFactor = Math.sqrt(1 / sizeRatio); // Raiz quadrada para suavizar
-        calculatedQuality = Math.max(
-          25,
-          Math.round(testQuality * reductionFactor)
-        );
+        calculatedQuality = Math.max(25, Math.round(testQuality * reductionFactor));
       }
 
-      console.log(
-        `🎯 Qualidade calculada: ${calculatedQuality}% (baseada na proporção ${sizeRatio.toFixed(
-          2
-        )}x)`
-      );
+      console.log(`🎯 Qualidade calculada: ${calculatedQuality}% (baseada na proporção ${sizeRatio.toFixed(2)}x)`);
 
-        // Gera arquivo final com qualidade calculada
-        const finalCmd = `ffmpeg -y -i "${inputPath}" \
-        -vcodec libwebp \
-        -filter_complex "${filterComplex}" \
-        -loop 0 -q:v ${Math.round(
-        calculatedQuality * 0.8
-        )} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
+      // Gera arquivo final com qualidade calculada
+      const finalCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${baseFilter}" -loop 0 -q:v ${Math.round(calculatedQuality * 0.8)} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
 
       await new Promise((resolve, reject) => {
         exec(finalCmd, (err, stdout, stderr) => {
@@ -381,23 +360,16 @@ class StickerService {
       const webpBuffer = fs.readFileSync(outputPath);
       const finalSizeKB = Math.round(webpBuffer.length / 1024);
 
-      console.log(
-        `📦 WebP final gerado: ${finalSizeKB} KB (qualidade ${calculatedQuality}%)`
-      );
+      console.log(`📦 WebP final gerado: ${finalSizeKB} KB (qualidade ${calculatedQuality}%)`);
 
       // Verifica se está dentro do limite
       if (webpBuffer.length > 500 * 1024) {
-        console.log(
-          `⚠️ Ainda grande (${finalSizeKB} KB), tentando qualidade mínima...`
-        );
+        console.log(`⚠️ Ainda grande (${finalSizeKB} KB), tentando qualidade mínima...`);
 
         // Fallback com qualidade mínima
         fs.unlinkSync(outputPath);
 
-        const fallbackCmd = `ffmpeg -y -i "${inputPath}" \
--vcodec libwebp \
--filter_complex "${filterComplex}" \
--loop 0 -q:v 20 -preset picture -an -vsync 0 -t 4 "${outputPath}"`;
+        const fallbackCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${baseFilter}" -loop 0 -q:v 20 -preset picture -an -vsync 0 -t 4 "${outputPath}"`;
 
         await new Promise((resolve, reject) => {
           exec(fallbackCmd, (err, stdout, stderr) => {
@@ -413,14 +385,10 @@ class StickerService {
         const fallbackSizeKB = Math.round(fallbackBuffer.length / 1024);
 
         if (fallbackBuffer.length > 500 * 1024) {
-          throw new Error(
-            `Não foi possível reduzir para menos de 500KB. Tamanho final: ${fallbackSizeKB} KB`
-          );
+          throw new Error(`Não foi possível reduzir para menos de 500KB. Tamanho final: ${fallbackSizeKB} KB`);
         }
 
-        console.log(
-          `📦 Fallback aplicado: ${fallbackSizeKB} KB (qualidade mínima)`
-        );
+        console.log(`📦 Fallback aplicado: ${fallbackSizeKB} KB (qualidade mínima)`);
         const webpB64 = fallbackBuffer.toString("base64");
         const media = new MessageMedia("image/webp", webpB64);
 
@@ -430,9 +398,7 @@ class StickerService {
           stickerName: "Sticker Animado",
         });
 
-        console.log(
-          `🎉 Sticker animado enviado! (${fallbackSizeKB} KB, qualidade mínima)`
-        );
+        console.log(`🎉 Sticker animado enviado! (${fallbackSizeKB} KB, qualidade mínima)`);
       } else {
         // Sucesso com qualidade calculada
         const webpB64 = webpBuffer.toString("base64");
@@ -444,16 +410,14 @@ class StickerService {
           stickerName: "Sticker Animado",
         });
 
-        console.log(
-          `🎉 Sticker animado enviado com sucesso! (${finalSizeKB} KB, qualidade ${calculatedQuality}%)`
-        );
+        console.log(`🎉 Sticker animado enviado com sucesso! (${finalSizeKB} KB, qualidade ${calculatedQuality}%)`);
       }
     } catch (error) {
       console.error("❌ Erro ao processar sticker animado:", error.message);
       throw error;
     } finally {
-        if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+      if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
     }
   }
 
