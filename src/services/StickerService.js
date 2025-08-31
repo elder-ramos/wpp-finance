@@ -289,23 +289,23 @@ class StickerService {
   async _sendAnimatedGifSticker(client, chatId, gifBase64) {
     console.log("🎞️ Processando GIF/MP4 como sticker animado via FFmpeg...");
 
-    // Definindo caminhos temporários
+    // Caminhos temporários
     const inputPath = `./temp_input_${Date.now()}.gif`;
     const outputPath = `./temp_sticker_${Date.now()}.webp`;
 
     try {
-      // Salva o arquivo temporário (pode ser GIF ou MP4)
+      // Salva o arquivo temporário
       fs.writeFileSync(inputPath, Buffer.from(gifBase64, "base64"));
 
-      console.log("⚙️ Convertendo para WebP animado com transparência...");
+      console.log("⚙️ Convertendo para WebP animado otimizado...");
 
-      // Comando FFmpeg para gerar WebP animado com fundo transparente
-      const ffmpegCmd = `ffmpeg -i "${inputPath}" \
+      // Novo comando FFmpeg com compressão otimizada
+      const ffmpegCmd = `ffmpeg -y -i "${inputPath}" \
 -vcodec libwebp \
 -filter_complex "[0:v] fps=15,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000" \
--loop 0 -preset default -an -vsync 0 "${outputPath}"`;
+-loop 0 -preset picture -an -vsync 0 -t 6 "${outputPath}"`;
 
-      // Executa o comando FFmpeg
+      // Executa o FFmpeg
       await new Promise((resolve, reject) => {
         exec(ffmpegCmd, (err, stdout, stderr) => {
           if (err) {
@@ -316,13 +316,19 @@ class StickerService {
         });
       });
 
-      console.log("✅ Conversão concluída com sucesso.");
-
-      // Lê o arquivo gerado e converte para base64
+      // Lê o WebP final
       const webpBuffer = fs.readFileSync(outputPath);
-      const webpB64 = webpBuffer.toString("base64");
 
-      // Cria objeto de mídia para envio
+      // Verifica tamanho final para evitar erro do puppeteer
+      if (webpBuffer.length > 1024 * 512) {
+        throw new Error(
+          `Sticker final muito grande (${(webpBuffer.length / 1024).toFixed(
+            1
+          )} KB). Precisa ter menos de 512KB.`
+        );
+      }
+
+      const webpB64 = webpBuffer.toString("base64");
       const media = new MessageMedia("image/webp", webpB64);
 
       // Envia o sticker animado
@@ -338,9 +344,10 @@ class StickerService {
         )} KB)`
       );
     } catch (error) {
-      console.error("❌ Erro ao processar sticker animado:", error);
+      console.error("❌ Erro ao processar sticker animado:", error.message);
+      throw error;
     } finally {
-      // Remove arquivos temporários
+      // Limpa arquivos temporários
       if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
       if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
     }
