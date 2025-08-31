@@ -289,100 +289,167 @@ class StickerService {
   async _sendAnimatedGifSticker(client, chatId, gifBase64) {
     console.log("🎞️ Processando GIF/MP4 como sticker animado via FFmpeg...");
 
-    // Caminhos temporários
     const inputPath = `./temp_input_${Date.now()}.gif`;
     const outputPath = `./temp_sticker_${Date.now()}.webp`;
 
     try {
-      // Salva o arquivo temporário
+      // Salva o GIF/MP4 temporário
       fs.writeFileSync(inputPath, Buffer.from(gifBase64, "base64"));
 
-      console.log("⚙️ Convertendo para WebP animado com qualidade dinâmica...");
+      console.log("⚙️ Calculando qualidade ideal para WebP animado...");
 
-      let webpBuffer;
-      let finalQuality;
+      // Primeiro, testa com qualidade média para estimar tamanho
+      const testQuality = 60;
+      console.log(`🧮 Testando qualidade ${testQuality}% para estimativa...`);
 
-      // Loop de qualidade dinâmica - similar ao base64ToStickerWebp
-      for (let quality = 80; quality >= 30; quality -= 10) {
-        console.log(`🔄 Tentando qualidade ${quality}%...`);
-
-        // Comando FFmpeg com qualidade ajustável
-        const ffmpegCmd = `ffmpeg -y -i "${inputPath}" \
+      const testCmd = `ffmpeg -y -i "${inputPath}" \
 -vcodec libwebp \
 -filter_complex "[0:v] fps=12,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000" \
--loop 0 -q:v ${Math.round(
-          quality * 0.8
-        )} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
+-loop 0 -pix_fmt yuva420p -q:v ${Math.round(testQuality * 0.8)} \
+-preset picture -an -vsync 0 -t 5 "${outputPath}"`;
 
-        // Executa o FFmpeg
+      await new Promise((resolve, reject) => {
+        exec(testCmd, (err, stdout, stderr) => {
+          if (err) {
+            console.error("❌ Erro no FFmpeg (teste):", stderr);
+            return reject(err);
+          }
+          resolve();
+        });
+      });
+
+      if (!fs.existsSync(outputPath)) {
+        throw new Error("Arquivo WebP de teste não foi gerado");
+      }
+
+      const testBuffer = fs.readFileSync(outputPath);
+      const testSizeKB = Math.round(testBuffer.length / 1024);
+      console.log(
+        `📊 Tamanho teste (qualidade ${testQuality}%): ${testSizeKB} KB`
+      );
+
+      // Remove arquivo de teste
+      fs.unlinkSync(outputPath);
+
+      // Calcula qualidade ideal baseada na proporção
+      const targetSizeKB = 450; // 450KB para ter margem de segurança (meta: <500KB)
+      const sizeRatio = testSizeKB / targetSizeKB;
+
+      let calculatedQuality;
+      if (sizeRatio <= 1.0) {
+        // Se já está no tamanho ideal, pode até aumentar um pouco a qualidade
+        calculatedQuality = Math.min(80, Math.round(testQuality * 1.1));
+      } else {
+        // Calcula redução necessária (relação não-linear entre qualidade e tamanho)
+        const reductionFactor = Math.sqrt(1 / sizeRatio); // Raiz quadrada para suavizar
+        calculatedQuality = Math.max(
+          25,
+          Math.round(testQuality * reductionFactor)
+        );
+      }
+
+      console.log(
+        `🎯 Qualidade calculada: ${calculatedQuality}% (baseada na proporção ${sizeRatio.toFixed(
+          2
+        )}x)`
+      );
+
+      // Gera arquivo final com qualidade calculada
+      const finalCmd = `ffmpeg -y -i "${inputPath}" \
+-vcodec libwebp \
+-filter_complex "[0:v] fps=12,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000" \
+-loop 0 -pix_fmt yuva420p -q:v ${Math.round(calculatedQuality * 0.8)} \
+-preset picture -an -vsync 0 -t 5 "${outputPath}"`;
+
+      await new Promise((resolve, reject) => {
+        exec(finalCmd, (err, stdout, stderr) => {
+          if (err) {
+            console.error("❌ Erro no FFmpeg (final):", stderr);
+            return reject(err);
+          }
+          resolve();
+        });
+      });
+
+      if (!fs.existsSync(outputPath)) {
+        throw new Error("Arquivo WebP final não foi gerado pelo FFmpeg");
+      }
+
+      const webpBuffer = fs.readFileSync(outputPath);
+      const finalSizeKB = Math.round(webpBuffer.length / 1024);
+
+      console.log(
+        `📦 WebP final gerado: ${finalSizeKB} KB (qualidade ${calculatedQuality}%)`
+      );
+
+      // Verifica se está dentro do limite
+      if (webpBuffer.length > 500 * 1024) {
+        console.log(
+          `⚠️ Ainda grande (${finalSizeKB} KB), tentando qualidade mínima...`
+        );
+
+        // Fallback com qualidade mínima
+        fs.unlinkSync(outputPath);
+
+        const fallbackCmd = `ffmpeg -y -i "${inputPath}" \
+-vcodec libwebp \
+-filter_complex "[0:v] fps=10,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000" \
+-loop 0 -pix_fmt yuva420p -q:v 20 \
+-preset picture -an -vsync 0 -t 4 "${outputPath}"`;
+
         await new Promise((resolve, reject) => {
-          exec(ffmpegCmd, (err, stdout, stderr) => {
+          exec(fallbackCmd, (err, stdout, stderr) => {
             if (err) {
-              console.error("❌ Erro no FFmpeg:", stderr);
+              console.error("❌ Erro no FFmpeg (fallback):", stderr);
               return reject(err);
             }
             resolve();
           });
         });
 
-        // Verifica se o arquivo foi criado
-        if (!fs.existsSync(outputPath)) {
-          throw new Error("Arquivo WebP não foi gerado pelo FFmpeg");
+        const fallbackBuffer = fs.readFileSync(outputPath);
+        const fallbackSizeKB = Math.round(fallbackBuffer.length / 1024);
+
+        if (fallbackBuffer.length > 500 * 1024) {
+          throw new Error(
+            `Não foi possível reduzir para menos de 500KB. Tamanho final: ${fallbackSizeKB} KB`
+          );
         }
 
-        // Lê o WebP gerado
-        webpBuffer = fs.readFileSync(outputPath);
-        const sizeKB = Math.round(webpBuffer.length / 1024);
+        console.log(
+          `📦 Fallback aplicado: ${fallbackSizeKB} KB (qualidade mínima)`
+        );
+        const webpB64 = fallbackBuffer.toString("base64");
+        const media = new MessageMedia("image/webp", webpB64);
 
-        console.log(`📦 WebP gerado com qualidade ${quality}%: ${sizeKB} KB`);
+        await client.sendMessage(chatId, media, {
+          sendMediaAsSticker: true,
+          stickerAuthor: "WPP Bot",
+          stickerName: "Sticker Animado",
+        });
 
-        // Verifica se está dentro do limite (500KB para stickers animados)
-        if (webpBuffer.length <= 500 * 1024) {
-          finalQuality = quality;
-          console.log(
-            `✅ Qualidade ${quality}% aprovada (${sizeKB} KB ≤ 500KB)`
-          );
-          break;
-        } else {
-          console.log(
-            `⚠️ Qualidade ${quality}% muito grande (${sizeKB} KB > 500KB), tentando menor...`
-          );
-          // Remove o arquivo para a próxima tentativa
-          if (fs.existsSync(outputPath)) {
-            fs.unlinkSync(outputPath);
-          }
-        }
-      }
+        console.log(
+          `🎉 Sticker animado enviado! (${fallbackSizeKB} KB, qualidade mínima)`
+        );
+      } else {
+        // Sucesso com qualidade calculada
+        const webpB64 = webpBuffer.toString("base64");
+        const media = new MessageMedia("image/webp", webpB64);
 
-      // Se mesmo na qualidade mínima ainda estiver grande
-      if (!webpBuffer || webpBuffer.length > 500 * 1024) {
-        throw new Error(
-          `Não foi possível reduzir o sticker para menos de 500KB. Tamanho final: ${Math.round(
-            webpBuffer.length / 1024
-          )} KB`
+        await client.sendMessage(chatId, media, {
+          sendMediaAsSticker: true,
+          stickerAuthor: "WPP Bot",
+          stickerName: "Sticker Animado",
+        });
+
+        console.log(
+          `🎉 Sticker animado enviado com sucesso! (${finalSizeKB} KB, qualidade ${calculatedQuality}%)`
         );
       }
-
-      const webpB64 = webpBuffer.toString("base64");
-      const media = new MessageMedia("image/webp", webpB64);
-
-      // Envia o sticker animado
-      await client.sendMessage(chatId, media, {
-        sendMediaAsSticker: true,
-        stickerAuthor: "WPP Bot",
-        stickerName: "Sticker Animado",
-      });
-
-      console.log(
-        `🎉 Sticker animado enviado com sucesso! (${Math.round(
-          webpBuffer.length / 1024
-        )} KB, qualidade ${finalQuality}%)`
-      );
     } catch (error) {
       console.error("❌ Erro ao processar sticker animado:", error.message);
       throw error;
     } finally {
-      // Limpa arquivos temporários
       if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
       if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
     }
