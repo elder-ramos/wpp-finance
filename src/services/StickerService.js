@@ -89,10 +89,9 @@ class StickerService {
               "-ss 0"  // Inicia do segundo 0
             ])
             .outputOptions([
-              "-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000@0,fps=8", // Transparência no padding
+              "-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,fps=8", // 8 FPS, fundo transparente
               "-f gif",
-              "-loop 0", // Loop infinito
-              "-transparent_color_flag", "1" // Ativa transparência no GIF
+              "-loop 0" // Loop infinito
             ])
             .output(outputPath)
             .on("start", (commandLine) => {
