@@ -304,9 +304,8 @@ class StickerService {
 
       const testCmd = `ffmpeg -y -i "${inputPath}" \
 -vcodec libwebp \
--filter_complex "[0:v] fps=12,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000" \
--loop 0 -pix_fmt yuva420p -q:v ${Math.round(testQuality * 0.8)} \
--preset picture -an -vsync 0 -t 5 "${outputPath}"`;
+-filter_complex "[0:v] fps=12,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=FFFFFF00" \
+-loop 0 -lossless 0 -qscale ${Math.round(testQuality * 0.8)} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
 
       await new Promise((resolve, reject) => {
         exec(testCmd, (err, stdout, stderr) => {
@@ -357,9 +356,8 @@ class StickerService {
       // Gera arquivo final com qualidade calculada
       const finalCmd = `ffmpeg -y -i "${inputPath}" \
 -vcodec libwebp \
--filter_complex "[0:v] fps=12,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000" \
--loop 0 -pix_fmt yuva420p -q:v ${Math.round(calculatedQuality * 0.8)} \
--preset picture -an -vsync 0 -t 5 "${outputPath}"`;
+-filter_complex "[0:v] fps=12,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=FFFFFF00" \
+-loop 0 -lossless 0 -qscale ${Math.round(calculatedQuality * 0.8)} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
 
       await new Promise((resolve, reject) => {
         exec(finalCmd, (err, stdout, stderr) => {
@@ -393,8 +391,8 @@ class StickerService {
 
         const fallbackCmd = `ffmpeg -y -i "${inputPath}" \
 -vcodec libwebp \
--filter_complex "[0:v] fps=10,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000" \
--loop 0 -pix_fmt yuva420p -q:v 20 \
+-filter_complex "[0:v] fps=10,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=FFFFFF00" \
+-loop 0 -lossless 0 -qscale 20 \
 -preset picture -an -vsync 0 -t 4 "${outputPath}"`;
 
         await new Promise((resolve, reject) => {
