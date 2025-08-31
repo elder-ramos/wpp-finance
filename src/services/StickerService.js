@@ -304,7 +304,7 @@ class StickerService {
 
       const testCmd = `ffmpeg -y -i "${inputPath}" \
 -vcodec libwebp \
--filter_complex "[0:v] fps=12,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000" \
+-filter_complex "[0:v] fps=12,crop='min(iw,ih)':'min(iw,ih)',scale=512:512:flags=lanczos,format=rgba" \
 -loop 0 -q:v ${Math.round(testQuality * 0.8)} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
 
       await new Promise((resolve, reject) => {
@@ -356,7 +356,7 @@ class StickerService {
       // Gera arquivo final com qualidade calculada
       const finalCmd = `ffmpeg -y -i "${inputPath}" \
 -vcodec libwebp \
--filter_complex "[0:v] fps=12,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000" \
+-filter_complex "[0:v] fps=12,crop='min(iw,ih)':'min(iw,ih)',scale=512:512:flags=lanczos,format=rgba" \
 -loop 0 -q:v ${Math.round(calculatedQuality * 0.8)} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
 
       await new Promise((resolve, reject) => {
@@ -391,7 +391,7 @@ class StickerService {
 
         const fallbackCmd = `ffmpeg -y -i "${inputPath}" \
 -vcodec libwebp \
--filter_complex "[0:v] fps=10,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000" \
+-filter_complex "[0:v] fps=10,crop='min(iw,ih)':'min(iw,ih)',scale=512:512:flags=lanczos,format=rgba" \
 -loop 0 -q:v 20 \
 -preset picture -an -vsync 0 -t 4 "${outputPath}"`;
 
