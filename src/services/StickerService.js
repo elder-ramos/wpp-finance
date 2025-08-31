@@ -287,9 +287,6 @@ class StickerService {
 
     const inputPath = `./temp_input_${Date.now()}.gif`;
     const outputPath = `./temp_sticker_${Date.now()}.webp`;
-    
-    // Filtro único e simplificado para todas as conversões
-    const baseFilter = "[0:v] fps=12,scale=512:512:force_original_aspect_ratio=increase,crop=512:512,format=rgba";
 
     try {
       // Salva o GIF/MP4 temporário
@@ -297,11 +294,13 @@ class StickerService {
 
       console.log("⚙️ Calculando qualidade ideal para WebP animado...");
 
-      // Primeiro, testa com qualidade média para estimar tamanho
-      const testQuality = 60;
+      // Primeiro, testa com qualidade baixa para estimar tamanho
+      const testQuality = 40; // Reduzido de 60 para 40
       console.log(`🧮 Testando qualidade ${testQuality}% para estimativa...`);
 
-      const testCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${baseFilter}" -loop 0 -q:v ${Math.round(testQuality * 0.8)} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
+      // Filtro otimizado com FPS reduzido e compressão mais agressiva
+      const testFilter = "[0:v] fps=8,scale=512:512:force_original_aspect_ratio=increase,crop=512:512,format=rgba";
+      const testCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${testFilter}" -loop 0 -q:v ${Math.round(testQuality * 0.6)} -preset picture -an -vsync 0 -t 4 "${outputPath}"`;
 
       await new Promise((resolve, reject) => {
         exec(testCmd, (err, stdout, stderr) => {
@@ -324,24 +323,36 @@ class StickerService {
       // Remove arquivo de teste
       fs.unlinkSync(outputPath);
 
-      // Calcula qualidade ideal baseada na proporção
-      const targetSizeKB = 450; // 450KB para ter margem de segurança (meta: <500KB)
+      // Calcula qualidade ideal com base mais conservadora
+      const targetSizeKB = 400; // Reduzido para 400KB para ter mais margem
       const sizeRatio = testSizeKB / targetSizeKB;
 
       let calculatedQuality;
+      let fps = 8; // FPS padrão reduzido
+      let duration = 4; // Duração reduzida
+
       if (sizeRatio <= 1.0) {
-        // Se já está no tamanho ideal, pode até aumentar um pouco a qualidade
-        calculatedQuality = Math.min(80, Math.round(testQuality * 1.1));
+        // Se já está no tamanho ideal, pode aumentar um pouco
+        calculatedQuality = Math.min(50, Math.round(testQuality * 1.1));
+        fps = 10;
+        duration = 5;
+      } else if (sizeRatio <= 2.0) {
+        // Tamanho moderadamente grande
+        calculatedQuality = Math.max(20, Math.round(testQuality * 0.7));
+        fps = 6;
+        duration = 3;
       } else {
-        // Calcula redução necessária (relação não-linear entre qualidade e tamanho)
-        const reductionFactor = Math.sqrt(1 / sizeRatio); // Raiz quadrada para suavizar
-        calculatedQuality = Math.max(25, Math.round(testQuality * reductionFactor));
+        // Tamanho muito grande - compressão agressiva
+        calculatedQuality = Math.max(15, Math.round(testQuality * 0.5));
+        fps = 5;
+        duration = 3;
       }
 
-      console.log(`🎯 Qualidade calculada: ${calculatedQuality}% (baseada na proporção ${sizeRatio.toFixed(2)}x)`);
+      console.log(`🎯 Qualidade calculada: ${calculatedQuality}%, FPS: ${fps}, Duração: ${duration}s (proporção ${sizeRatio.toFixed(2)}x)`);
 
-      // Gera arquivo final com qualidade calculada
-      const finalCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${baseFilter}" -loop 0 -q:v ${Math.round(calculatedQuality * 0.8)} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
+      // Filtro final com parâmetros otimizados
+      const finalFilter = `[0:v] fps=${fps},scale=512:512:force_original_aspect_ratio=increase,crop=512:512,format=rgba`;
+      const finalCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${finalFilter}" -loop 0 -q:v ${Math.round(calculatedQuality * 0.6)} -preset picture -an -vsync 0 -t ${duration} "${outputPath}"`;
 
       await new Promise((resolve, reject) => {
         exec(finalCmd, (err, stdout, stderr) => {
@@ -364,12 +375,13 @@ class StickerService {
 
       // Verifica se está dentro do limite
       if (webpBuffer.length > 500 * 1024) {
-        console.log(`⚠️ Ainda grande (${finalSizeKB} KB), tentando qualidade mínima...`);
+        console.log(`⚠️ Ainda grande (${finalSizeKB} KB), aplicando compressão extrema...`);
 
-        // Fallback com qualidade mínima
+        // Fallback com compressão extrema
         fs.unlinkSync(outputPath);
 
-        const fallbackCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${baseFilter}" -loop 0 -q:v 20 -preset picture -an -vsync 0 -t 4 "${outputPath}"`;
+        const extremeFilter = "[0:v] fps=4,scale=400:400:force_original_aspect_ratio=increase,crop=400:400,format=rgba";
+        const fallbackCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${extremeFilter}" -loop 0 -q:v 10 -preset picture -an -vsync 0 -t 2 "${outputPath}"`;
 
         await new Promise((resolve, reject) => {
           exec(fallbackCmd, (err, stdout, stderr) => {
@@ -385,10 +397,44 @@ class StickerService {
         const fallbackSizeKB = Math.round(fallbackBuffer.length / 1024);
 
         if (fallbackBuffer.length > 500 * 1024) {
+          // Último recurso: usar Sharp para compressão adicional
+          console.log("🔧 Aplicando compressão adicional com Sharp...");
+          
+          try {
+            const compressedBuffer = await sharp(fallbackBuffer)
+              .webp({
+                quality: 30,
+                effort: 6,
+                smartSubsample: true,
+                animated: true
+              })
+              .toBuffer();
+            
+            const compressedSizeKB = Math.round(compressedBuffer.length / 1024);
+            
+            if (compressedBuffer.length <= 500 * 1024) {
+              console.log(`📦 Sharp compressão bem-sucedida: ${compressedSizeKB} KB`);
+              
+              const webpB64 = compressedBuffer.toString("base64");
+              const media = new MessageMedia("image/webp", webpB64);
+
+              await client.sendMessage(chatId, media, {
+                sendMediaAsSticker: true,
+                stickerAuthor: "WPP Bot",
+                stickerName: "Sticker Animado",
+              });
+
+              console.log(`🎉 Sticker animado enviado com compressão Sharp! (${compressedSizeKB} KB)`);
+              return;
+            }
+          } catch (sharpError) {
+            console.error("❌ Erro na compressão Sharp:", sharpError.message);
+          }
+          
           throw new Error(`Não foi possível reduzir para menos de 500KB. Tamanho final: ${fallbackSizeKB} KB`);
         }
 
-        console.log(`📦 Fallback aplicado: ${fallbackSizeKB} KB (qualidade mínima)`);
+        console.log(`📦 Compressão extrema aplicada: ${fallbackSizeKB} KB`);
         const webpB64 = fallbackBuffer.toString("base64");
         const media = new MessageMedia("image/webp", webpB64);
 
@@ -398,7 +444,7 @@ class StickerService {
           stickerName: "Sticker Animado",
         });
 
-        console.log(`🎉 Sticker animado enviado! (${fallbackSizeKB} KB, qualidade mínima)`);
+        console.log(`🎉 Sticker animado enviado! (${fallbackSizeKB} KB, compressão extrema)`);
       } else {
         // Sucesso com qualidade calculada
         const webpB64 = webpBuffer.toString("base64");
