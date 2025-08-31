@@ -297,34 +297,69 @@ class StickerService {
       // Salva o arquivo temporário
       fs.writeFileSync(inputPath, Buffer.from(gifBase64, "base64"));
 
-      console.log("⚙️ Convertendo para WebP animado otimizado...");
+      console.log("⚙️ Convertendo para WebP animado com qualidade dinâmica...");
 
-      // Novo comando FFmpeg com compressão otimizada
-      const ffmpegCmd = `ffmpeg -y -i "${inputPath}" \
+      let webpBuffer;
+      let finalQuality;
+
+      // Loop de qualidade dinâmica - similar ao base64ToStickerWebp
+      for (let quality = 80; quality >= 30; quality -= 10) {
+        console.log(`🔄 Tentando qualidade ${quality}%...`);
+
+        // Comando FFmpeg com qualidade ajustável
+        const ffmpegCmd = `ffmpeg -y -i "${inputPath}" \
 -vcodec libwebp \
--filter_complex "[0:v] fps=15,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000" \
--loop 0 -preset picture -an -vsync 0 -t 6 "${outputPath}"`;
+-filter_complex "[0:v] fps=12,scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000" \
+-loop 0 -q:v ${Math.round(
+          quality * 0.8
+        )} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
 
-      // Executa o FFmpeg
-      await new Promise((resolve, reject) => {
-        exec(ffmpegCmd, (err, stdout, stderr) => {
-          if (err) {
-            console.error("❌ Erro no FFmpeg:", stderr);
-            return reject(err);
-          }
-          resolve();
+        // Executa o FFmpeg
+        await new Promise((resolve, reject) => {
+          exec(ffmpegCmd, (err, stdout, stderr) => {
+            if (err) {
+              console.error("❌ Erro no FFmpeg:", stderr);
+              return reject(err);
+            }
+            resolve();
+          });
         });
-      });
 
-      // Lê o WebP final
-      const webpBuffer = fs.readFileSync(outputPath);
+        // Verifica se o arquivo foi criado
+        if (!fs.existsSync(outputPath)) {
+          throw new Error("Arquivo WebP não foi gerado pelo FFmpeg");
+        }
 
-      // Verifica tamanho final para evitar erro do puppeteer
-      if (webpBuffer.length > 1024 * 512) {
+        // Lê o WebP gerado
+        webpBuffer = fs.readFileSync(outputPath);
+        const sizeKB = Math.round(webpBuffer.length / 1024);
+
+        console.log(`📦 WebP gerado com qualidade ${quality}%: ${sizeKB} KB`);
+
+        // Verifica se está dentro do limite (500KB para stickers animados)
+        if (webpBuffer.length <= 500 * 1024) {
+          finalQuality = quality;
+          console.log(
+            `✅ Qualidade ${quality}% aprovada (${sizeKB} KB ≤ 500KB)`
+          );
+          break;
+        } else {
+          console.log(
+            `⚠️ Qualidade ${quality}% muito grande (${sizeKB} KB > 500KB), tentando menor...`
+          );
+          // Remove o arquivo para a próxima tentativa
+          if (fs.existsSync(outputPath)) {
+            fs.unlinkSync(outputPath);
+          }
+        }
+      }
+
+      // Se mesmo na qualidade mínima ainda estiver grande
+      if (!webpBuffer || webpBuffer.length > 500 * 1024) {
         throw new Error(
-          `Sticker final muito grande (${(webpBuffer.length / 1024).toFixed(
-            1
-          )} KB). Precisa ter menos de 512KB.`
+          `Não foi possível reduzir o sticker para menos de 500KB. Tamanho final: ${Math.round(
+            webpBuffer.length / 1024
+          )} KB`
         );
       }
 
@@ -341,7 +376,7 @@ class StickerService {
       console.log(
         `🎉 Sticker animado enviado com sucesso! (${Math.round(
           webpBuffer.length / 1024
-        )} KB)`
+        )} KB, qualidade ${finalQuality}%)`
       );
     } catch (error) {
       console.error("❌ Erro ao processar sticker animado:", error.message);
