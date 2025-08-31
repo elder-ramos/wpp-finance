@@ -1,5 +1,6 @@
 services:
   app:
+    container_name: 'wpp-sticker-bot'
     build: .
     ports:
       - "3000:3000"
@@ -12,6 +13,5 @@ services:
       - wwebjscache:/app/.wwebjs_cache
 
 volumes:
-  postgres-data:
   wwebjsauth:
   wwebjscache:
