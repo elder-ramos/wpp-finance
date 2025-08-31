@@ -291,6 +291,7 @@ class StickerService {
 
     const inputPath = `./temp_input_${Date.now()}.gif`;
     const outputPath = `./temp_sticker_${Date.now()}.webp`;
+    const filterComplex = "[0:v] fps=12,scale=512:512:flags=lanczos:force_original_aspect_ratio=increase,crop=512:512";
 
     try {
       // Salva o GIF/MP4 temporário
@@ -355,13 +356,13 @@ class StickerService {
         )}x)`
       );
 
-      // Gera arquivo final com qualidade calculada
-      const finalCmd = `ffmpeg -y -i "${inputPath}" \
--vcodec libwebp \
--filter_complex "[0:v] fps=12,crop=min(iw\\,ih):min(iw\\,ih),scale=512:512:flags=lanczos,format=rgba" \
--loop 0 -q:v ${Math.round(
+        // Gera arquivo final com qualidade calculada
+        const finalCmd = `ffmpeg -y -i "${inputPath}" \
+        -vcodec libwebp \
+        -filter_complex "${filterComplex}" \
+        -loop 0 -q:v ${Math.round(
         calculatedQuality * 0.8
-      )} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
+        )} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
 
       await new Promise((resolve, reject) => {
         exec(finalCmd, (err, stdout, stderr) => {
@@ -395,9 +396,8 @@ class StickerService {
 
         const fallbackCmd = `ffmpeg -y -i "${inputPath}" \
 -vcodec libwebp \
--filter_complex "[0:v] fps=10,crop=min(iw\\,ih):min(iw\\,ih),scale=512:512:flags=lanczos,format=rgba" \
--loop 0 -q:v 20 \
--preset picture -an -vsync 0 -t 4 "${outputPath}"`;
+-filter_complex "${filterComplex}" \
+-loop 0 -q:v 20 -preset picture -an -vsync 0 -t 4 "${outputPath}"`;
 
         await new Promise((resolve, reject) => {
           exec(fallbackCmd, (err, stdout, stderr) => {
