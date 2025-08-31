@@ -97,7 +97,7 @@ class StickerService {
               "-ss 0", // começa do início
             ])
             .outputOptions([
-              "-vf fps=12,scale=512:512:force_original_aspect_ratio=increase,crop=512:512", // 12 FPS, crop para quadrado
+              "-vf fps=15,scale=512:512:force_original_aspect_ratio=increase,crop=512:512", // 15 FPS, crop para quadrado
               "-f gif",
               "-loop 0", // loop infinito
             ])
@@ -298,9 +298,9 @@ class StickerService {
       const testQuality = 40; // Reduzido de 60 para 40
       console.log(`🧮 Testando qualidade ${testQuality}% para estimativa...`);
 
-      // Filtro otimizado com FPS reduzido e compressão mais agressiva
-      const testFilter = "[0:v] fps=8,scale=512:512:force_original_aspect_ratio=increase,crop=512:512,format=rgba";
-      const testCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${testFilter}" -loop 0 -q:v ${Math.round(testQuality * 0.6)} -preset picture -an -vsync 0 -t 4 "${outputPath}"`;
+      // Filtro otimizado com FPS em 15 e qualidade baixa para teste
+      const testFilter = "[0:v] fps=15,scale=512:512:force_original_aspect_ratio=increase,crop=512:512,format=rgba";
+      const testCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${testFilter}" -loop 0 -q:v ${Math.round(testQuality * 0.4)} -preset picture -an -vsync 0 -t 4 "${outputPath}"`;
 
       await new Promise((resolve, reject) => {
         exec(testCmd, (err, stdout, stderr) => {
@@ -323,36 +323,36 @@ class StickerService {
       // Remove arquivo de teste
       fs.unlinkSync(outputPath);
 
-      // Calcula qualidade ideal com base mais conservadora
+      // Calcula qualidade ideal com base mais conservadora, priorizando FPS
       const targetSizeKB = 400; // Reduzido para 400KB para ter mais margem
       const sizeRatio = testSizeKB / targetSizeKB;
 
       let calculatedQuality;
-      let fps = 8; // FPS padrão reduzido
-      let duration = 4; // Duração reduzida
+      let fps = 15; // FPS mínimo sempre 15 para fluidez
+      let duration = 4; // Duração padrão
 
       if (sizeRatio <= 1.0) {
-        // Se já está no tamanho ideal, pode aumentar um pouco
-        calculatedQuality = Math.min(50, Math.round(testQuality * 1.1));
-        fps = 10;
+        // Se já está no tamanho ideal, pode manter qualidade boa
+        calculatedQuality = Math.min(45, Math.round(testQuality * 1.1));
+        fps = 18; // Pode aumentar um pouco
         duration = 5;
       } else if (sizeRatio <= 2.0) {
-        // Tamanho moderadamente grande
-        calculatedQuality = Math.max(20, Math.round(testQuality * 0.7));
-        fps = 6;
+        // Tamanho moderadamente grande - reduz qualidade mas mantém FPS
+        calculatedQuality = Math.max(15, Math.round(testQuality * 0.5));
+        fps = 15; // Mantém 15 FPS
         duration = 3;
       } else {
-        // Tamanho muito grande - compressão agressiva
-        calculatedQuality = Math.max(15, Math.round(testQuality * 0.5));
-        fps = 5;
+        // Tamanho muito grande - qualidade mínima mas mantém FPS
+        calculatedQuality = Math.max(10, Math.round(testQuality * 0.3));
+        fps = 15; // Sempre mantém 15 FPS mínimo
         duration = 3;
       }
 
       console.log(`🎯 Qualidade calculada: ${calculatedQuality}%, FPS: ${fps}, Duração: ${duration}s (proporção ${sizeRatio.toFixed(2)}x)`);
 
-      // Filtro final com parâmetros otimizados
+      // Filtro final com parâmetros otimizados - sempre mínimo 15 FPS
       const finalFilter = `[0:v] fps=${fps},scale=512:512:force_original_aspect_ratio=increase,crop=512:512,format=rgba`;
-      const finalCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${finalFilter}" -loop 0 -q:v ${Math.round(calculatedQuality * 0.6)} -preset picture -an -vsync 0 -t ${duration} "${outputPath}"`;
+      const finalCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${finalFilter}" -loop 0 -q:v ${Math.round(calculatedQuality * 0.4)} -preset picture -an -vsync 0 -t ${duration} "${outputPath}"`;
 
       await new Promise((resolve, reject) => {
         exec(finalCmd, (err, stdout, stderr) => {
@@ -377,11 +377,11 @@ class StickerService {
       if (webpBuffer.length > 500 * 1024) {
         console.log(`⚠️ Ainda grande (${finalSizeKB} KB), aplicando compressão extrema...`);
 
-        // Fallback com compressão extrema
+        // Fallback com compressão extrema mas mantendo FPS
         fs.unlinkSync(outputPath);
 
-        const extremeFilter = "[0:v] fps=4,scale=400:400:force_original_aspect_ratio=increase,crop=400:400,format=rgba";
-        const fallbackCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${extremeFilter}" -loop 0 -q:v 10 -preset picture -an -vsync 0 -t 2 "${outputPath}"`;
+        const extremeFilter = "[0:v] fps=15,scale=400:400:force_original_aspect_ratio=increase,crop=400:400,format=rgba";
+        const fallbackCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${extremeFilter}" -loop 0 -q:v 5 -preset picture -an -vsync 0 -t 2 "${outputPath}"`;
 
         await new Promise((resolve, reject) => {
           exec(fallbackCmd, (err, stdout, stderr) => {
