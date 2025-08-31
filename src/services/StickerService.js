@@ -304,8 +304,10 @@ class StickerService {
 
       const testCmd = `ffmpeg -y -i "${inputPath}" \
 -vcodec libwebp \
--filter_complex "[0:v] fps=12,crop='min(iw,ih)':'min(iw,ih)',scale=512:512:flags=lanczos,format=rgba" \
--loop 0 -q:v ${Math.round(testQuality * 0.8)} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
+-filter_complex "[0:v] fps=12,crop=min(iw\\,ih):min(iw\\,ih),scale=512:512:flags=lanczos,format=rgba" \
+-loop 0 -q:v ${Math.round(
+        testQuality * 0.8
+      )} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
 
       await new Promise((resolve, reject) => {
         exec(testCmd, (err, stdout, stderr) => {
@@ -356,8 +358,10 @@ class StickerService {
       // Gera arquivo final com qualidade calculada
       const finalCmd = `ffmpeg -y -i "${inputPath}" \
 -vcodec libwebp \
--filter_complex "[0:v] fps=12,crop='min(iw,ih)':'min(iw,ih)',scale=512:512:flags=lanczos,format=rgba" \
--loop 0 -q:v ${Math.round(calculatedQuality * 0.8)} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
+-filter_complex "[0:v] fps=12,crop=min(iw\\,ih):min(iw\\,ih),scale=512:512:flags=lanczos,format=rgba" \
+-loop 0 -q:v ${Math.round(
+        calculatedQuality * 0.8
+      )} -preset picture -an -vsync 0 -t 5 "${outputPath}"`;
 
       await new Promise((resolve, reject) => {
         exec(finalCmd, (err, stdout, stderr) => {
@@ -391,7 +395,7 @@ class StickerService {
 
         const fallbackCmd = `ffmpeg -y -i "${inputPath}" \
 -vcodec libwebp \
--filter_complex "[0:v] fps=10,crop='min(iw,ih)':'min(iw,ih)',scale=512:512:flags=lanczos,format=rgba" \
+-filter_complex "[0:v] fps=10,crop=min(iw\\,ih):min(iw\\,ih),scale=512:512:flags=lanczos,format=rgba" \
 -loop 0 -q:v 20 \
 -preset picture -an -vsync 0 -t 4 "${outputPath}"`;
 
@@ -448,8 +452,8 @@ class StickerService {
       console.error("❌ Erro ao processar sticker animado:", error.message);
       throw error;
     } finally {
-    //   if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-    //   if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+        if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
     }
   }
 
