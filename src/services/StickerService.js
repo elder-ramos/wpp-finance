@@ -270,11 +270,17 @@ class StickerService {
         
         console.log(`🎨 Configurações: quality=${qualitySettings.quality}, effort=${qualitySettings.effort}, alphaQuality=${qualitySettings.alphaQuality}`);
         
-        // Converte para WebP animado sem redimensionar (manter qualidade)
+        // Converte para WebP animado SEM redimensionar para manter transparência
         const webpBuffer = await sharp(input, { 
           animated: true,  // CRÍTICO: Force animated processing
           limitInputPixels: false  // Remove limite de pixels
         })
+          .resize(512, 512, {
+            fit: 'inside',
+            withoutEnlargement: false,
+            kernel: sharp.kernel.lanczos3,
+            background: { r: 0, g: 0, b: 0, alpha: 0 } // FUNDO TRANSPARENTE
+          })
           .webp({
             quality: qualitySettings.quality,
             lossless: false,
@@ -296,6 +302,12 @@ class StickerService {
           console.log('⚠️ WebP muito pequeno para número de frames, tentando com qualidade maior...');
           
           const webpBufferHQ = await sharp(input, { animated: true })
+            .resize(512, 512, {
+              fit: 'inside',
+              withoutEnlargement: false,
+              kernel: sharp.kernel.lanczos3,
+              background: { r: 0, g: 0, b: 0, alpha: 0 } // FUNDO TRANSPARENTE
+            })
             .webp({
               quality: 70,
               lossless: false,
