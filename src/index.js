@@ -24,9 +24,8 @@ client.on("ready", async () => {
 client.on("message", async (msg) => {
   // Verifica se a mensagem tem mídia
   if (msg.hasMedia) {
+    const startTime = Date.now();
     try {
-      console.log("Baixando mídia...");
-      
       // Baixa a mídia usando o método oficial (mantém qualidade original)
       const media = await msg.downloadMedia();
       
@@ -35,6 +34,13 @@ client.on("message", async (msg) => {
       
     } catch (error) {
       console.error("Erro ao processar mídia:", error);
+    } finally {
+      const totalTime = Date.now() - startTime;
+      if (totalTime > 2000) {
+        console.log(`⚠️⏱️ Tempo total de processamento: ${totalTime}ms (mais de 2 segundos)`);
+      } else {
+        console.log(`✅⏱️ Tempo total de processamento: ${totalTime}ms (menos de 2 segundos)`);
+      }
     }
     return;
   }
