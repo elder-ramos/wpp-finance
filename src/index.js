@@ -27,13 +27,33 @@ client.on("message", async (msg) => {
     const startTime = Date.now();
     try {
       // Baixa a mídia usando o método oficial (mantém qualidade original)
-      const media = await msg.downloadMedia();
+      // Implementa retries para contornar falhas temporárias
+      let media;
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          media = await msg.downloadMedia();
+          break;
+        } catch (downloadError) {
+          console.warn(`⚠️ Tentativa de download ${4 - retries} falhou: ${downloadError.message}`);
+          retries--;
+          if (retries === 0) throw downloadError;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
       
       // Usa o service para processar a mídia
       await stickerService.processMedia(client, media, msg.from);
       
     } catch (error) {
       console.error("Erro ao processar mídia:", error);
+      
+      // Tratamento específico para o erro de addAnnotations (comum em versões desatualizadas)
+      if (error.message && error.message.includes("addAnnotations")) {
+        await client.sendMessage(msg.from, "❌ **Erro Crítico**\n\nO WhatsApp Web foi atualizado e o bot precisa de manutenção interna.\n\nPor favor, avise o administrador.");
+      } else {
+        await client.sendMessage(msg.from, "❌ Erro ao baixar a mídia. Por favor, tente enviar novamente.");
+      }
     } finally {
       const totalTime = Date.now() - startTime;
       if (totalTime > 2000) {
