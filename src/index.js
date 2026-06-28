@@ -75,6 +75,20 @@ client.on("message", async (msg) => {
   }
 });
 
+const fs = require("fs");
+const path = require("path");
+
+// Limpeza automática do lock do Chromium para evitar o erro "Code 21" no Docker
+const lockFile = path.join(process.cwd(), ".wwebjs_auth", "session", "SingletonLock");
+try {
+  if (fs.existsSync(lockFile)) {
+    fs.unlinkSync(lockFile);
+    console.log("🔒 Arquivo SingletonLock antigo removido com sucesso.");
+  }
+} catch (e) {
+  console.error("Erro ao tentar remover SingletonLock:", e.message);
+}
+
 client.initialize();
 
 // API Endpoint para envio de mensagens
