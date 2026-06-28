@@ -1,5 +1,5 @@
 services:
-  app:
+  wpp-bot:
     container_name: 'wpp-sticker-bot'
     build: .
     ports:
@@ -11,6 +11,12 @@ services:
     volumes:
       - wwebjsauth:/app/.wwebjs_auth
       - wwebjscache:/app/.wwebjs_cache
+    networks:
+      - promo-network
+
+networks:
+  promo-network:
+    external: true
 
 volumes:
   wwebjsauth:

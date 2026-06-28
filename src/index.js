@@ -1,6 +1,10 @@
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
+const express = require("express");
 const { StickerService } = require("./services");
+
+const app = express();
+app.use(express.json());
 
 // Inicializa o service de stickers
 const stickerService = new StickerService();
@@ -72,3 +76,33 @@ client.on("message", async (msg) => {
 });
 
 client.initialize();
+
+// API Endpoint para envio de mensagens
+app.post("/api/send", async (req, res) => {
+  try {
+    const { to, body } = req.body;
+
+    if (!to || !body) {
+      return res.status(400).json({ error: "Campos 'to' e 'body' são obrigatórios." });
+    }
+
+    // Formata o número para o padrão do WhatsApp Web JS
+    const chatId = `${to}@c.us`;
+
+    // Dispara o envio de forma assíncrona, não aguarda o resultado para liberar a thread
+    client.sendMessage(chatId, body).catch(err => {
+      console.error(`Erro ao enviar mensagem via API para ${to}:`, err);
+    });
+
+    // Retorna 202 Accepted imediatamente
+    return res.status(202).json({ status: "queued", message: "Mensagem enfileirada para envio" });
+  } catch (error) {
+    console.error("Erro no endpoint /api/send:", error);
+    return res.status(500).json({ error: "Erro interno do servidor" });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor HTTP rodando na porta ${PORT}`);
+});
