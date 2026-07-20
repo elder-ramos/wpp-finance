@@ -7,9 +7,8 @@ const StickerQueue = require("./queue/StickerQueue");
 const app = express();
 app.use(express.json());
 
-// Inicializa o service de stickers
 const stickerService = new StickerService();
-const stickerQueue = new StickerQueue(3); // Max 3 concurrent sticker conversions
+const stickerQueue = new StickerQueue(3);
 
 const client = new Client({
   authStrategy: new LocalAuth(),
@@ -28,12 +27,10 @@ client.on("ready", async () => {
 });
 
 client.on("message", async (msg) => {
-  // Verifica se a mensagem tem mídia
   if (msg.hasMedia) {
     const jobId = `sticker-${msg.id}-${Date.now()}`;
     const queueSize = stickerQueue.getQueueSize();
 
-    // Send immediate feedback about queue position
     if (queueSize > 0) {
       await client.sendMessage(
         msg.from,
@@ -46,11 +43,9 @@ client.on("message", async (msg) => {
       );
     }
 
-    // Enqueue the actual processing
     stickerQueue.enqueue(async () => {
       const startTime = Date.now();
       try {
-        // Baixa a mídia usando o método oficial
         let media;
         let retries = 3;
         while (retries > 0) {
@@ -65,13 +60,11 @@ client.on("message", async (msg) => {
           }
         }
 
-        // Usa o service para processar a mídia
         await stickerService.processMedia(client, media, msg.from);
 
       } catch (error) {
         console.error("Erro ao processar mídia:", error);
 
-        // Tratamento específico para o erro de addAnnotations
         if (error.message && error.message.includes("addAnnotations")) {
           await client.sendMessage(
             msg.from,
@@ -96,7 +89,6 @@ client.on("message", async (msg) => {
     return;
   }
 
-  // Processa mensagens de texto normalmente
   if (msg.body) {
     console.log(`Mensagem de texto: ${msg.body}`);
   }
@@ -105,7 +97,6 @@ client.on("message", async (msg) => {
 const fs = require("fs");
 const path = require("path");
 
-// Limpeza automática do lock do Chromium para evitar o erro "Code 21" no Docker
 const lockFile = path.join(process.cwd(), ".wwebjs_auth", "session", "SingletonLock");
 try {
   if (fs.existsSync(lockFile)) {
@@ -118,7 +109,6 @@ try {
 
 client.initialize();
 
-// API Endpoint para envio de mensagens
 app.post("/api/send", async (req, res) => {
   try {
     const { to, body } = req.body;
@@ -127,15 +117,12 @@ app.post("/api/send", async (req, res) => {
       return res.status(400).json({ error: "Campos 'to' e 'body' são obrigatórios." });
     }
 
-    // Formata o número para o padrão do WhatsApp Web JS
     const chatId = `${to}@c.us`;
 
-    // Dispara o envio de forma assíncrona, não aguarda o resultado para liberar a thread
     client.sendMessage(chatId, body).catch(err => {
       console.error(`Erro ao enviar mensagem via API para ${to}:`, err);
     });
 
-    // Retorna 202 Accepted imediatamente
     return res.status(202).json({ status: "queued", message: "Mensagem enfileirada para envio" });
   } catch (error) {
     console.error("Erro no endpoint /api/send:", error);

@@ -23,7 +23,7 @@ class StickerService {
     console.log("🔍 Verificando disponibilidade do FFmpeg...");
 
     try {
-      // Teste mais simples e direto
+
       await new Promise((resolve, reject) => {
         const { exec } = require("child_process");
         const timeoutId = setTimeout(() => {
@@ -80,13 +80,12 @@ class StickerService {
     console.log(`   Output: ${outputPath}`);
 
     try {
-      // Salva o vídeo base64 como arquivo temporário
+
       console.log("💾 Salvando vídeo como arquivo temporário...");
       const videoBuffer = Buffer.from(base64Data, "base64");
       fs.writeFileSync(inputPath, videoBuffer);
       console.log(`✅ Arquivo salvo: ${fs.statSync(inputPath).size} bytes`);
 
-      // Converte vídeo para GIF usando FFmpeg com timeout
       console.log("🔄 Iniciando conversão FFmpeg...");
 
       await Promise.race([
@@ -130,12 +129,10 @@ class StickerService {
         ),
       ]);
 
-      // Verifica se o arquivo foi criado
       if (!fs.existsSync(outputPath)) {
         throw new Error("Arquivo GIF não foi gerado pelo FFmpeg");
       }
 
-      // Lê o GIF gerado e converte para base64
       console.log("📖 Lendo GIF gerado...");
       const gifBuffer = fs.readFileSync(outputPath);
       const gifBase64 = gifBuffer.toString("base64");
@@ -147,7 +144,6 @@ class StickerService {
       );
       console.log(`📝 Base64: ${gifBase64.length} chars`);
 
-      // Limpa arquivos temporários
       console.log("🧹 Limpando arquivos temporários...");
       if (fs.existsSync(inputPath)) {
         fs.unlinkSync(inputPath);
@@ -167,7 +163,6 @@ class StickerService {
       );
       console.error("📊 Detalhes do erro:", error);
 
-      // Limpa arquivos temporários em caso de erro
       console.log("🧹 Limpando arquivos temporários (erro)...");
       try {
         if (fs.existsSync(inputPath)) {
@@ -202,7 +197,6 @@ class StickerService {
       if (isVideo) {
         console.log(`🔧 Processando vídeo ${ext.toUpperCase()}...`);
 
-        // Verifica FFmpeg com timeout reduzido
         let ffmpegAvailable = false;
         try {
           console.log("⏳ Verificando FFmpeg...");
@@ -235,7 +229,6 @@ class StickerService {
           return;
         }
 
-        // Se FFmpeg está disponível, tenta converter
         console.log(
           `🚀 FFmpeg disponível, iniciando conversão ${ext.toUpperCase()} → GIF...`
         );
@@ -245,7 +238,6 @@ class StickerService {
             `✅ Conversão concluída, GIF gerado: ${gifBase64.length} chars`
           );
 
-          // Processa o GIF gerado como ANIMADO
           console.log("📦 Enviando sticker ANIMADO a partir do GIF gerado...");
           await this._sendAnimatedGifSticker(client, chatId, gifBase64);
 
@@ -262,7 +254,6 @@ class StickerService {
         }
       }
 
-      // Para GIFs, processa diretamente
       console.log("🎞️ Processando GIF animado diretamente...");
       await this.sendStickerFromBase64(client, chatId, base64Data);
       console.log("✅ GIF animado processado com sucesso!");
@@ -289,16 +280,14 @@ class StickerService {
     const outputPath = `./temp_sticker_${Date.now()}.webp`;
 
     try {
-      // Salva o GIF/MP4 temporário
+
       fs.writeFileSync(inputPath, Buffer.from(gifBase64, "base64"));
 
       console.log("⚙️ Calculando qualidade ideal para WebP animado...");
 
-      // Primeiro, testa com qualidade baixa para estimar tamanho
       const testQuality = 40; // Reduzido de 60 para 40
       console.log(`🧮 Testando qualidade ${testQuality}% para estimativa...`);
 
-      // Filtro otimizado com FPS em 15 e qualidade baixa para teste
       const testFilter = "[0:v] fps=15,scale=512:512:force_original_aspect_ratio=increase,crop=512:512,format=rgba";
       const testCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${testFilter}" -loop 0 -q:v ${Math.round(testQuality * 0.4)} -preset picture -an -vsync 0 -t 4 "${outputPath}"`;
 
@@ -320,10 +309,8 @@ class StickerService {
       const testSizeKB = Math.round(testBuffer.length / 1024);
       console.log(`📊 Tamanho teste (qualidade ${testQuality}%): ${testSizeKB} KB`);
 
-      // Remove arquivo de teste
       fs.unlinkSync(outputPath);
 
-      // Calcula qualidade ideal com base mais conservadora, priorizando FPS
       const targetSizeKB = 400; // Reduzido para 400KB para ter mais margem
       const sizeRatio = testSizeKB / targetSizeKB;
 
@@ -332,17 +319,17 @@ class StickerService {
       let duration = 4; // Duração padrão
 
       if (sizeRatio <= 1.0) {
-        // Se já está no tamanho ideal, pode manter qualidade boa
+
         calculatedQuality = Math.min(45, Math.round(testQuality * 1.1));
         fps = 18; // Pode aumentar um pouco
         duration = 5;
       } else if (sizeRatio <= 2.0) {
-        // Tamanho moderadamente grande - reduz qualidade mas mantém FPS
+
         calculatedQuality = Math.max(15, Math.round(testQuality * 0.5));
         fps = 15; // Mantém 15 FPS
         duration = 3;
       } else {
-        // Tamanho muito grande - qualidade mínima mas mantém FPS
+
         calculatedQuality = Math.max(10, Math.round(testQuality * 0.3));
         fps = 15; // Sempre mantém 15 FPS mínimo
         duration = 3;
@@ -350,7 +337,6 @@ class StickerService {
 
       console.log(`🎯 Qualidade calculada: ${calculatedQuality}%, FPS: ${fps}, Duração: ${duration}s (proporção ${sizeRatio.toFixed(2)}x)`);
 
-      // Filtro final com parâmetros otimizados - sempre mínimo 15 FPS
       const finalFilter = `[0:v] fps=${fps},scale=512:512:force_original_aspect_ratio=increase,crop=512:512,format=rgba`;
       const finalCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${finalFilter}" -loop 0 -q:v ${Math.round(calculatedQuality * 0.4)} -preset picture -an -vsync 0 -t ${duration} "${outputPath}"`;
 
@@ -373,11 +359,9 @@ class StickerService {
 
       console.log(`📦 WebP final gerado: ${finalSizeKB} KB (qualidade ${calculatedQuality}%)`);
 
-      // Verifica se está dentro do limite
       if (webpBuffer.length > 500 * 1024) {
         console.log(`⚠️ Ainda grande (${finalSizeKB} KB), aplicando compressão extrema...`);
 
-        // Fallback com compressão extrema mas mantendo FPS
         fs.unlinkSync(outputPath);
 
         const extremeFilter = "[0:v] fps=15,scale=400:400:force_original_aspect_ratio=increase,crop=400:400,format=rgba";
@@ -397,7 +381,7 @@ class StickerService {
         const fallbackSizeKB = Math.round(fallbackBuffer.length / 1024);
 
         if (fallbackBuffer.length > 500 * 1024) {
-          // Último recurso: usar Sharp para compressão adicional
+
           console.log("🔧 Aplicando compressão adicional com Sharp...");
           
           try {
@@ -446,7 +430,7 @@ class StickerService {
 
         console.log(`🎉 Sticker animado enviado! (${fallbackSizeKB} KB, compressão extrema)`);
       } else {
-        // Sucesso com qualidade calculada
+
         const webpB64 = webpBuffer.toString("base64");
         const media = new MessageMedia("image/webp", webpB64);
 
@@ -473,7 +457,6 @@ class StickerService {
 
       const ffmpegAvailable = await this._checkFFmpegAvailability();
 
-      // Envia mensagem de erro para o usuário
       await client.sendMessage(
         chatId,
         `❌ **Erro ao processar ${ext ? ext.toUpperCase() : "mídia"}**\n\n` +
@@ -559,8 +542,6 @@ class StickerService {
       if (metadata.format === "gif" && metadata.pages > 1) {
         console.log("GIF animado detectado - processando diretamente...");
 
-        // Processa GIF animado diretamente sem chamar sendAnimatedSticker
-        // para evitar loop infinito
         const qualitySettings = this._getQualitySettings(metadata.pages);
 
         const webpB64 = await sharp(input)
@@ -586,7 +567,6 @@ class StickerService {
         return;
       }
 
-      // Para imagens estáticas
       const webpB64 = await this.base64ToStickerWebp(base64Data);
 
       const media = new MessageMedia("image/webp", webpB64);
@@ -654,7 +634,6 @@ class StickerService {
         `📊 Mídia válida: ${media.mimetype}, ${media.data.length} chars`
       );
 
-      // Determina se é animado (GIF ou vídeo)
       const isAnimated =
         media.mimetype === "image/gif" || media.mimetype.startsWith("video/");
       console.log(`🎬 Mídia animada: ${isAnimated}`);
@@ -685,7 +664,6 @@ class StickerService {
         hasData: !!media?.data,
       });
 
-      // Envia mensagem de erro geral
       try {
         await client.sendMessage(
           chatId,
