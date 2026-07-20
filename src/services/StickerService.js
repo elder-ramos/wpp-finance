@@ -2,7 +2,7 @@
 const sharp = require("sharp");
 const fs = require("fs");
 const path = require("path");
-const { spawn, exec } = require("child_process");
+const { exec } = require("child_process");
 const os = require("os");
 const crypto = require("crypto");
 
@@ -158,7 +158,7 @@ class StickerService {
           "💡 **Possíveis causas do erro:**\n" +
           "• Arquivo muito grande\n" +
           "• Formato não suportado\n" +
-          "• Vídeo muito longo (limite: 10 segundos)\n" +
+          "• Vídeo muito longo (limite: 5 segundos)\n" +
           `${!ffmpegAvailable ? "• FFmpeg não instalado no ambiente\n" : ""}` +
           "\n🔄 **Tente novamente com um arquivo menor ou envie um GIF!**"
       );

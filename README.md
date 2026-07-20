@@ -158,7 +158,7 @@ const stickerQueue = new StickerQueue(5); // Até 5 paralelos
 - **whatsapp-web.js** — Client WhatsApp Web
 - **express** — API HTTP (endpoints futuros)
 - **sharp** — Processamento de imagens
-- **fluent-ffmpeg** — Conversão de vídeos
+- **FFmpeg** (binário externo, via `child_process`) — Conversão de vídeos
 - **p-queue** — Gerenciamento de fila com concorrência
 - **dotenv** — Variáveis de ambiente
 
