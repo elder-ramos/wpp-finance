@@ -34,7 +34,7 @@ Um bot WhatsApp que converte imagens, GIFs e vídeos em stickers animados, com p
 ┌──────────────────────────────────────────────────────────────┐
 │ StickerService (services/StickerService.js)                 │
 │ • Detecta tipo de mídia (imagem/GIF/vídeo)                  │
-│ • FFmpeg: vídeo → GIF → WebP                                │
+│ • FFmpeg: vídeo → WebP (passe único)                        │
 │ • Sharp: processamento de imagens                           │
 │ • Envia sticker via WhatsApp API                            │
 └──────────────────────────────────────────────────────────────┘
@@ -75,10 +75,9 @@ Scaneie o QR code com seu WhatsApp mobile para autenticar.
 3. Envia como sticker animado
 
 ### Vídeo (MP4, WebM, AVI, MOV)
-1. Converte para GIF (FFmpeg, limite 5s)
-2. Redimensiona para 512x512, 15 FPS
-3. Converte para WebP animado
-4. Envia como sticker animado
+1. Converte direto para WebP animado (FFmpeg, passe único, limite 5s)
+2. 512x512, 15 FPS, com fallback de qualidade para ficar ≤ 500KB
+3. Envia como sticker animado
 
 ## Fila de Processamento
 
@@ -167,7 +166,7 @@ const stickerQueue = new StickerQueue(5); // Até 5 paralelos
 
 - Imagem → Sticker: ~500ms
 - GIF → Sticker: ~1-2s
-- Vídeo → Sticker: ~5-15s (depende de duração/qualidade)
+- Vídeo → Sticker: ~3-8s (passe único FFmpeg)
 - Fila: Reduz timeouts e sobrecarga sob carga alta
 
 ## Licença
