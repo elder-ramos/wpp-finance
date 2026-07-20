@@ -1,9 +1,10 @@
 ﻿const { MessageMedia } = require("whatsapp-web.js");
 const sharp = require("sharp");
-const ffmpeg = require("fluent-ffmpeg");
 const fs = require("fs");
 const path = require("path");
 const { spawn, exec } = require("child_process");
+const os = require("os");
+const crypto = require("crypto");
 
 class StickerService {
   constructor() {
@@ -62,392 +63,80 @@ class StickerService {
     return { quality: 60, effort: 6, alphaQuality: 80 };
   }
 
-  async _convertVideoToSticker(base64Data, ext) {
-    console.log(`🎬 Iniciando conversão ${ext.toUpperCase()} com FFmpeg...`);
+  async _videoToWebp(base64Data, ext) {
+    const id = crypto.randomBytes(6).toString("hex");
+    const inputPath = path.join(os.tmpdir(), `wpp_in_${id}.${ext}`);
+    const outputPath = path.join(os.tmpdir(), `wpp_out_${id}.webp`);
 
-    const tempDir = path.join(__dirname, "../../temp");
-    if (!fs.existsSync(tempDir)) {
-      console.log("📁 Criando diretório temp...");
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
+    fs.writeFileSync(inputPath, Buffer.from(base64Data, "base64"));
 
-    const timestamp = Date.now();
-    const inputPath = path.join(tempDir, `input_${timestamp}.${ext}`);
-    const outputPath = path.join(tempDir, `output_${timestamp}.gif`);
-
-    console.log(`📂 Arquivos temporários:`);
-    console.log(`   Input: ${inputPath}`);
-    console.log(`   Output: ${outputPath}`);
+    const attempts = [
+      { quality: 40, size: 512, duration: 5 },
+      { quality: 20, size: 512, duration: 3 },
+      { quality: 8, size: 400, duration: 2 },
+    ];
 
     try {
+      for (const attempt of attempts) {
+        const filter = `fps=15,scale=${attempt.size}:${attempt.size}:force_original_aspect_ratio=decrease,format=rgba,pad=${attempt.size}:${attempt.size}:(ow-iw)/2:(oh-ih)/2:color=#00000000`;
+        const cmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -vf "${filter}" -loop 0 -q:v ${attempt.quality} -preset picture -an -vsync 0 -t ${attempt.duration} "${outputPath}"`;
 
-      console.log("💾 Salvando vídeo como arquivo temporário...");
-      const videoBuffer = Buffer.from(base64Data, "base64");
-      fs.writeFileSync(inputPath, videoBuffer);
-      console.log(`✅ Arquivo salvo: ${fs.statSync(inputPath).size} bytes`);
+        await new Promise((resolve, reject) => {
+          exec(cmd, { timeout: 60000 }, (err) => (err ? reject(err) : resolve()));
+        });
 
-      console.log("🔄 Iniciando conversão FFmpeg...");
-
-      await Promise.race([
-        new Promise((resolve, reject) => {
-          ffmpeg(inputPath)
-            .inputOptions([
-              "-t 5", // limita a 5 segundos
-              "-ss 0", // começa do início
-            ])
-            .outputOptions([
-              "-vf fps=15,scale=512:512:force_original_aspect_ratio=increase,crop=512:512", // 15 FPS, crop para quadrado
-              "-f gif",
-              "-loop 0", // loop infinito
-            ])
-            .output(outputPath)
-            .on("start", (commandLine) => {
-              console.log("🚀 FFmpeg iniciado:", commandLine);
-            })
-            .on("progress", (progress) => {
-              console.log(
-                `⏳ Progresso: ${
-                  progress.percent ? Math.round(progress.percent) : "?"
-                }%`
-              );
-            })
-            .on("end", () => {
-              console.log("✅ Conversão FFmpeg concluída");
-              resolve();
-            })
-            .on("error", (err) => {
-              console.error("❌ Erro FFmpeg durante conversão:", err.message);
-              reject(err);
-            })
-            .run();
-        }),
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Timeout na conversão FFmpeg (60s)")),
-            60000
-          )
-        ),
-      ]);
-
-      if (!fs.existsSync(outputPath)) {
-        throw new Error("Arquivo GIF não foi gerado pelo FFmpeg");
-      }
-
-      console.log("📖 Lendo GIF gerado...");
-      const gifBuffer = fs.readFileSync(outputPath);
-      const gifBase64 = gifBuffer.toString("base64");
-
-      console.log(
-        `📊 GIF gerado: ${gifBuffer.length} bytes (${
-          Math.round((gifBuffer.length / 1024 / 1024) * 100) / 100
-        } MB)`
-      );
-      console.log(`📝 Base64: ${gifBase64.length} chars`);
-
-      console.log("🧹 Limpando arquivos temporários...");
-      if (fs.existsSync(inputPath)) {
-        fs.unlinkSync(inputPath);
-        console.log("🗑️ Input removido");
-      }
-      if (fs.existsSync(outputPath)) {
-        fs.unlinkSync(outputPath);
-        console.log("🗑️ Output removido");
-      }
-
-      console.log("🎉 Conversão concluída com sucesso!");
-      return gifBase64;
-    } catch (error) {
-      console.error(
-        `💥 Erro na conversão ${ext.toUpperCase()}:`,
-        error.message
-      );
-      console.error("📊 Detalhes do erro:", error);
-
-      console.log("🧹 Limpando arquivos temporários (erro)...");
-      try {
-        if (fs.existsSync(inputPath)) {
-          fs.unlinkSync(inputPath);
-          console.log("🗑️ Input removido (erro)");
+        if (!fs.existsSync(outputPath)) {
+          throw new Error("FFmpeg não gerou o arquivo WebP");
         }
-        if (fs.existsSync(outputPath)) {
-          fs.unlinkSync(outputPath);
-          console.log("🗑️ Output removido (erro)");
+
+        const buffer = fs.readFileSync(outputPath);
+        console.log(`WebP q=${attempt.quality}: ${Math.round(buffer.length / 1024)}KB`);
+
+        if (buffer.length <= 500 * 1024) {
+          return buffer.toString("base64");
         }
-      } catch (cleanupError) {
-        console.error("⚠️ Erro na limpeza:", cleanupError.message);
       }
 
-      throw new Error(
-        `Falha na conversão ${ext.toUpperCase()}: ${error.message}`
-      );
+      throw new Error("Não foi possível reduzir o sticker para menos de 500KB");
+    } finally {
+      if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
     }
   }
 
   async sendAnimatedSticker(client, chatId, base64Data, ext) {
-    console.log(
-      `🎬 Iniciando processamento de ${ext.toUpperCase()}: ${
-        base64Data.length
-      } chars`
-    );
-
     try {
-      const isVideo = !["gif"].includes(ext);
-      console.log(`📝 Tipo de mídia: ${isVideo ? "Vídeo" : "GIF"}`);
-
-      if (isVideo) {
-        console.log(`🔧 Processando vídeo ${ext.toUpperCase()}...`);
-
-        let ffmpegAvailable = false;
-        try {
-          console.log("⏳ Verificando FFmpeg...");
-          ffmpegAvailable = await Promise.race([
-            this._checkFFmpegAvailability(),
-            new Promise((resolve) => setTimeout(() => resolve(false), 5000)),
-          ]);
-          console.log(`🎯 Resultado FFmpeg: ${ffmpegAvailable}`);
-        } catch (checkError) {
-          console.error("❌ Erro na verificação FFmpeg:", checkError.message);
-          ffmpegAvailable = false;
-        }
-
-        if (!ffmpegAvailable) {
-          console.log(
-            `⚠️ FFmpeg indisponível para ${ext.toUpperCase()}, enviando mensagem de aviso...`
-          );
-
-          await client.sendMessage(
-            chatId,
-            `⚠️ **FFmpeg não disponível no servidor**\n\n` +
-              `O vídeo ${ext.toUpperCase()} não pode ser convertido para sticker animado.\n\n` +
-              `💡 **Alternativas:**\n` +
-              `• Envie **GIFs animados** (funcionam perfeitamente)\n` +
-              `• Use **imagens estáticas** para stickers normais\n\n` +
-              `🔧 **Status técnico:** FFmpeg não instalado ou inacessível`
-          );
-
-          console.log("✅ Mensagem de aviso enviada, processamento finalizado");
-          return;
-        }
-
-        console.log(
-          `🚀 FFmpeg disponível, iniciando conversão ${ext.toUpperCase()} → GIF...`
-        );
-        try {
-          const gifBase64 = await this._convertVideoToSticker(base64Data, ext);
-          console.log(
-            `✅ Conversão concluída, GIF gerado: ${gifBase64.length} chars`
-          );
-
-          console.log("📦 Enviando sticker ANIMADO a partir do GIF gerado...");
-          await this._sendAnimatedGifSticker(client, chatId, gifBase64);
-
-          console.log(
-            `🎉 Sticker animado ${ext.toUpperCase()} enviado com sucesso!`
-          );
-          return;
-        } catch (conversionError) {
-          console.error(
-            `❌ Erro na conversão ${ext.toUpperCase()}:`,
-            conversionError.message
-          );
-          throw conversionError;
-        }
+      if (ext === "gif") {
+        await this.sendStickerFromBase64(client, chatId, base64Data);
+        return;
       }
 
-      console.log("🎞️ Processando GIF animado diretamente...");
-      await this.sendStickerFromBase64(client, chatId, base64Data);
-      console.log("✅ GIF animado processado com sucesso!");
-    } catch (error) {
-      console.error(`💥 Erro crítico no processamento ${ext}:`, error.message);
-      console.error("📊 Stack trace:", error.stack);
-
-      try {
-        await this._animatedStickerErrorHandler(client, chatId, ext);
-        console.log("📨 Mensagem de erro enviada ao usuário");
-      } catch (handlerError) {
-        console.error(
-          "🚨 Erro ao enviar mensagem de erro:",
-          handlerError.message
+      const ffmpegAvailable = await this._checkFFmpegAvailability();
+      if (!ffmpegAvailable) {
+        await client.sendMessage(
+          chatId,
+          `⚠️ **FFmpeg não disponível no servidor**\n\n` +
+            `O vídeo ${ext.toUpperCase()} não pode ser convertido para sticker animado.\n\n` +
+            `💡 **Alternativas:**\n` +
+            `• Envie **GIFs animados** (funcionam perfeitamente)\n` +
+            `• Use **imagens estáticas** para stickers normais`
         );
+        return;
       }
-    }
-  }
 
-  async _sendAnimatedGifSticker(client, chatId, gifBase64) {
-    console.log("🎞️ Processando GIF/MP4 como sticker animado via FFmpeg...");
+      const webpB64 = await this._videoToWebp(base64Data, ext);
+      const media = new MessageMedia("image/webp", webpB64);
 
-    const inputPath = `./temp_input_${Date.now()}.gif`;
-    const outputPath = `./temp_sticker_${Date.now()}.webp`;
-
-    try {
-
-      fs.writeFileSync(inputPath, Buffer.from(gifBase64, "base64"));
-
-      console.log("⚙️ Calculando qualidade ideal para WebP animado...");
-
-      const testQuality = 40; // Reduzido de 60 para 40
-      console.log(`🧮 Testando qualidade ${testQuality}% para estimativa...`);
-
-      const testFilter = "[0:v] fps=15,scale=512:512:force_original_aspect_ratio=increase,crop=512:512,format=rgba";
-      const testCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${testFilter}" -loop 0 -q:v ${Math.round(testQuality * 0.4)} -preset picture -an -vsync 0 -t 4 "${outputPath}"`;
-
-      await new Promise((resolve, reject) => {
-        exec(testCmd, (err, stdout, stderr) => {
-          if (err) {
-            console.error("❌ Erro no FFmpeg (teste):", stderr);
-            return reject(err);
-          }
-          resolve();
-        });
+      await client.sendMessage(chatId, media, {
+        sendMediaAsSticker: true,
+        stickerAuthor: "WPP Bot",
+        stickerName: "Sticker Animado",
       });
 
-      if (!fs.existsSync(outputPath)) {
-        throw new Error("Arquivo WebP de teste não foi gerado");
-      }
-
-      const testBuffer = fs.readFileSync(outputPath);
-      const testSizeKB = Math.round(testBuffer.length / 1024);
-      console.log(`📊 Tamanho teste (qualidade ${testQuality}%): ${testSizeKB} KB`);
-
-      fs.unlinkSync(outputPath);
-
-      const targetSizeKB = 400; // Reduzido para 400KB para ter mais margem
-      const sizeRatio = testSizeKB / targetSizeKB;
-
-      let calculatedQuality;
-      let fps = 15; // FPS mínimo sempre 15 para fluidez
-      let duration = 4; // Duração padrão
-
-      if (sizeRatio <= 1.0) {
-
-        calculatedQuality = Math.min(45, Math.round(testQuality * 1.1));
-        fps = 18; // Pode aumentar um pouco
-        duration = 5;
-      } else if (sizeRatio <= 2.0) {
-
-        calculatedQuality = Math.max(15, Math.round(testQuality * 0.5));
-        fps = 15; // Mantém 15 FPS
-        duration = 3;
-      } else {
-
-        calculatedQuality = Math.max(10, Math.round(testQuality * 0.3));
-        fps = 15; // Sempre mantém 15 FPS mínimo
-        duration = 3;
-      }
-
-      console.log(`🎯 Qualidade calculada: ${calculatedQuality}%, FPS: ${fps}, Duração: ${duration}s (proporção ${sizeRatio.toFixed(2)}x)`);
-
-      const finalFilter = `[0:v] fps=${fps},scale=512:512:force_original_aspect_ratio=increase,crop=512:512,format=rgba`;
-      const finalCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${finalFilter}" -loop 0 -q:v ${Math.round(calculatedQuality * 0.4)} -preset picture -an -vsync 0 -t ${duration} "${outputPath}"`;
-
-      await new Promise((resolve, reject) => {
-        exec(finalCmd, (err, stdout, stderr) => {
-          if (err) {
-            console.error("❌ Erro no FFmpeg (final):", stderr);
-            return reject(err);
-          }
-          resolve();
-        });
-      });
-
-      if (!fs.existsSync(outputPath)) {
-        throw new Error("Arquivo WebP final não foi gerado pelo FFmpeg");
-      }
-
-      const webpBuffer = fs.readFileSync(outputPath);
-      const finalSizeKB = Math.round(webpBuffer.length / 1024);
-
-      console.log(`📦 WebP final gerado: ${finalSizeKB} KB (qualidade ${calculatedQuality}%)`);
-
-      if (webpBuffer.length > 500 * 1024) {
-        console.log(`⚠️ Ainda grande (${finalSizeKB} KB), aplicando compressão extrema...`);
-
-        fs.unlinkSync(outputPath);
-
-        const extremeFilter = "[0:v] fps=15,scale=400:400:force_original_aspect_ratio=increase,crop=400:400,format=rgba";
-        const fallbackCmd = `ffmpeg -y -i "${inputPath}" -vcodec libwebp -filter_complex "${extremeFilter}" -loop 0 -q:v 5 -preset picture -an -vsync 0 -t 2 "${outputPath}"`;
-
-        await new Promise((resolve, reject) => {
-          exec(fallbackCmd, (err, stdout, stderr) => {
-            if (err) {
-              console.error("❌ Erro no FFmpeg (fallback):", stderr);
-              return reject(err);
-            }
-            resolve();
-          });
-        });
-
-        const fallbackBuffer = fs.readFileSync(outputPath);
-        const fallbackSizeKB = Math.round(fallbackBuffer.length / 1024);
-
-        if (fallbackBuffer.length > 500 * 1024) {
-
-          console.log("🔧 Aplicando compressão adicional com Sharp...");
-          
-          try {
-            const compressedBuffer = await sharp(fallbackBuffer)
-              .webp({
-                quality: 30,
-                effort: 6,
-                smartSubsample: true,
-                animated: true
-              })
-              .toBuffer();
-            
-            const compressedSizeKB = Math.round(compressedBuffer.length / 1024);
-            
-            if (compressedBuffer.length <= 500 * 1024) {
-              console.log(`📦 Sharp compressão bem-sucedida: ${compressedSizeKB} KB`);
-              
-              const webpB64 = compressedBuffer.toString("base64");
-              const media = new MessageMedia("image/webp", webpB64);
-
-              await client.sendMessage(chatId, media, {
-                sendMediaAsSticker: true,
-                stickerAuthor: "WPP Bot",
-                stickerName: "Sticker Animado",
-              });
-
-              console.log(`🎉 Sticker animado enviado com compressão Sharp! (${compressedSizeKB} KB)`);
-              return;
-            }
-          } catch (sharpError) {
-            console.error("❌ Erro na compressão Sharp:", sharpError.message);
-          }
-          
-          throw new Error(`Não foi possível reduzir para menos de 500KB. Tamanho final: ${fallbackSizeKB} KB`);
-        }
-
-        console.log(`📦 Compressão extrema aplicada: ${fallbackSizeKB} KB`);
-        const webpB64 = fallbackBuffer.toString("base64");
-        const media = new MessageMedia("image/webp", webpB64);
-
-        await client.sendMessage(chatId, media, {
-          sendMediaAsSticker: true,
-          stickerAuthor: "WPP Bot",
-          stickerName: "Sticker Animado",
-        });
-
-        console.log(`🎉 Sticker animado enviado! (${fallbackSizeKB} KB, compressão extrema)`);
-      } else {
-
-        const webpB64 = webpBuffer.toString("base64");
-        const media = new MessageMedia("image/webp", webpB64);
-
-        await client.sendMessage(chatId, media, {
-          sendMediaAsSticker: true,
-          stickerAuthor: "WPP Bot",
-          stickerName: "Sticker Animado",
-        });
-
-        console.log(`🎉 Sticker animado enviado com sucesso! (${finalSizeKB} KB, qualidade ${calculatedQuality}%)`);
-      }
+      console.log(`Sticker animado ${ext.toUpperCase()} enviado`);
     } catch (error) {
-      console.error("❌ Erro ao processar sticker animado:", error.message);
-      throw error;
-    } finally {
-      if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+      console.error(`Erro no processamento ${ext}:`, error.message);
+      await this._animatedStickerErrorHandler(client, chatId, ext);
     }
   }
 
